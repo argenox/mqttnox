@@ -5,6 +5,9 @@
 #include "mqttnox.h"
 #include "mqttnox_tal.h"
 
+mqttnox_client_t client = { 0 };
+mqttnox_client_conf_t client_conf = { 0 };
+
 /** Callback used for async MQTT event handling. Note that this callback is called in the context
 	   of the mqttnox thread, so care must be taken to avoid a stack overflow by either increasing
 	   the mqttnox thread's stack, or by minimizing stack usage and passing event data to a task
@@ -27,6 +30,14 @@ void mqttnox_callback(mqttnox_evt_data_t * data)
 	{
 		case MQTTNOX_EVT_CONNECT:
 			printf("[App] MQTT Connected\n");
+
+			mqttnox_publish(&client,
+				MQTTNOX_QOS0_AT_MOST_ONCE_DELIV,
+				0,
+				0,
+				"/test/val",
+				"{\"val\": 2}");
+
 			break;
 		case MQTTNOX_EVT_PUBLISHED:
 			printf("[App] MQTT Published\n");
@@ -53,8 +64,7 @@ void mqttnox_callback(mqttnox_evt_data_t * data)
 
 int main(void)
 {
-	mqttnox_client_t client = {0};
-	mqttnox_client_conf_t client_conf = {0};
+	
 
 	client_conf.server.addr = "test.mosquitto.org";
 	client_conf.server.port = 1883;
@@ -66,6 +76,7 @@ int main(void)
 
 	mqttnox_init(&client);
 	mqttnox_connect(&client, &client_conf);
+
 
 	mqttnox_wait_thread();
 

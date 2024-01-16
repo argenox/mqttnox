@@ -96,6 +96,30 @@ typedef struct {
 #pragma pack(push, 1)
 typedef struct {
 
+    uint8_t name_len_msb;
+    uint8_t name_len_lsb;
+    char     name_val[MQTT_CONN_PROTOCOL_NAME_LEN];
+
+    uint8_t level_val;
+
+    uint8_t flag_user_name : 1;
+    uint8_t flag_password  : 1;
+    uint8_t flag_will_retain : 1;
+    uint8_t flag_will_qos : 2;
+    uint8_t flag_will : 1;
+    uint8_t flag_clean_session : 1;
+    uint8_t flag_reserved : 1;
+
+    uint8_t keepalive_msb;
+    uint8_t keepalive_lsb;
+
+} mqttnox_publish_var_hdr_t;
+
+#pragma pack(pop)
+
+#pragma pack(push, 1)
+typedef struct {
+
     uint8_t flag_session_present: 1;
     uint8_t flag_user_name : 7;
     uint8_t conn_return_code;

@@ -51,7 +51,7 @@ extern "C" {
 
 static uint8_t mqttnox_tx_buf[MQTTNOX_TX_BUF_SIZE];
 
-static int mqttnox_append_utf8_string(uint8_t* buffer, char* str);
+static int mqttnox_append_utf8_string(uint8_t* buffer, char* str, uint8_t add_len);
 
 
 static void mqttnox_handler_connack(mqttnox_client_t* c, uint8_t * data, uint16_t len);
@@ -343,19 +343,19 @@ mqttnox_rc_t mqttnox_connect(mqttnox_client_t * c, mqttnox_client_conf_t * conf)
         memcpy(&mqttnox_tx_buf[pkt_len], (void*)&var_hdr, sizeof(var_hdr));
         pkt_len += sizeof(var_hdr);
 
-        irc = mqttnox_append_utf8_string(&mqttnox_tx_buf[pkt_len], conf->client_identifier);
+        irc = mqttnox_append_utf8_string(&mqttnox_tx_buf[pkt_len], conf->client_identifier, 1);
         if (irc > 0) {
             pkt_len += irc;
         }
 
         if (var_hdr.flag_will) {
 
-            irc = mqttnox_append_utf8_string(&mqttnox_tx_buf[pkt_len], conf->will_topic.topic);
+            irc = mqttnox_append_utf8_string(&mqttnox_tx_buf[pkt_len], conf->will_topic.topic, 1);
             if (irc > 0) {
                 pkt_len += irc;
             }
 
-            irc = mqttnox_append_utf8_string(&mqttnox_tx_buf[pkt_len], conf->will_topic.msg);
+            irc = mqttnox_append_utf8_string(&mqttnox_tx_buf[pkt_len], conf->will_topic.msg, 1);
             if (irc > 0) {
                 pkt_len += irc;
             }
@@ -363,14 +363,14 @@ mqttnox_rc_t mqttnox_connect(mqttnox_client_t * c, mqttnox_client_conf_t * conf)
 
         if (var_hdr.flag_user_name) {
 
-            irc = mqttnox_append_utf8_string(&mqttnox_tx_buf[pkt_len], conf->auth.username);
+            irc = mqttnox_append_utf8_string(&mqttnox_tx_buf[pkt_len], conf->auth.username, 1);
             if (irc > 0) {
                 pkt_len += irc;
             }
 
             if (var_hdr.flag_password) {
 
-                irc = mqttnox_append_utf8_string(&mqttnox_tx_buf[pkt_len], conf->auth.password);
+                irc = mqttnox_append_utf8_string(&mqttnox_tx_buf[pkt_len], conf->auth.password, 1);
                 if (irc > 0) {
                     pkt_len += irc;
                 }
@@ -389,25 +389,79 @@ mqttnox_rc_t mqttnox_connect(mqttnox_client_t * c, mqttnox_client_conf_t * conf)
     return rc;
 }
 
-/**@brief Macro used to concatenate string using delayed macro expansion
+/**@brief MQTT Publish
 *
-* @note This macro will delay concatenation until the expressions have been resolved
+* @note This must be called when client has successfully connected
 *
-* @param[in]   lhs   Left hand side in concatenation
-* @param[in]   rhs   Right hand side in concatenation
+* @param[in]   c      MQTTNox Client object
+* @param[in]   qos    Quality of Service for Delivery \see mqttnox_qos_t
+* @param[in]   retain retain to send to future subscribers
+* @param[in]   dup    Indicates this is the first sending of data (0) or a duplicate (1)
 */
-mqttnox_rc_t mqttnox_publish(mqttnox_client_t * c)
+mqttnox_rc_t mqttnox_publish(mqttnox_client_t * c, 
+                             mqttnox_qos_t qos, 
+                             uint8_t retain, 
+                             uint8_t dup, 
+                             char * topic,
+                             char * msg)
 {
     mqttnox_rc_t rc = MQTTNOX_RC_ERROR;
+    mqttnox_hdr_t hdr;
+    mqttnox_connect_var_hdr_t var_hdr;
+    uint16_t pkt_len = 0;
+    int irc;
+
     do
     {
-        if(c->flag_initialized != MQTTNOX_INIT_FLAG) {
+        if (c->flag_initialized != MQTTNOX_INIT_FLAG) {
             rc = MQTTNOX_RC_ERROR_NOT_INIT;
             break;
         }
 
+        MEMZERO_S(hdr);
+        MEMZERO_S(var_hdr);
+
+        /* Initialize fixed header */
+        hdr.type = MQTTNOX_CTRL_PKT_TYPE_PUBLISH;
+        hdr.dup = dup & 1;
+        hdr.qos = qos & 0x03;
+        hdr.retain = retain;
+
+        MEMZERO(mqttnox_tx_buf);
+
+        /* Copy Fixed Header */
+        memcpy(mqttnox_tx_buf, (void*)&hdr, sizeof(hdr));
+        pkt_len += sizeof(hdr);
+
+        /* Skip Remaining length for now - updated later */
+        pkt_len += 1;
+
+        /* Setup Variable Header*/
+        irc = mqttnox_append_utf8_string(&mqttnox_tx_buf[pkt_len], topic, 1);
+        if (irc > 0) {
+            pkt_len += irc;
+        }
+
+        if (qos == MQTTNOX_QOS1_AT_LEAST_ONCE_DELIV || qos == MQTTNOX_QOS2_EXACTLY_ONCE_DELIV) {
+            /* Add packet identifier */
+            mqttnox_tx_buf[pkt_len++] = MSB(c->packet_ident);
+            mqttnox_tx_buf[pkt_len++] = LSB(c->packet_ident);
+        }
+
+        /* Msg does not have length */
+        irc = mqttnox_append_utf8_string(&mqttnox_tx_buf[pkt_len], msg, 0);
+        if (irc > 0) {
+            pkt_len += irc;
+        }
+
+        mqttnox_tx_buf[MQTT_LENGTH_FIELD_OFFSET] = pkt_len - 2;
+
+        /* Send the connect packet, response is received async */
+        irc = mqttnox_tcp_send(mqttnox_tx_buf, pkt_len);
+
+
         rc = MQTTNOX_SUCCESS;
-    } while(0);
+    } while (0);
 
     return rc;
 }
@@ -462,7 +516,7 @@ mqttnox_rc_t mqttnox_disconnect(mqttnox_client_t * c)
 }
 
 
-static int mqttnox_append_utf8_string(uint8_t* buffer, char* str)
+static int mqttnox_append_utf8_string(uint8_t* buffer, char* str, uint8_t add_len)
 {
     uint16_t len = 0;
     size_t str_len = 0;
@@ -476,8 +530,10 @@ static int mqttnox_append_utf8_string(uint8_t* buffer, char* str)
 
         str_len = strlen(str);
 
-        buffer[buf_offset + len++] = ((uint16_t)str_len & 0xFF00) >> 8;
-        buffer[buf_offset + len++] = ((uint16_t)str_len & 0x00FF);
+        if (add_len) {
+            buffer[buf_offset + len++] = ((uint16_t)str_len & 0xFF00) >> 8;
+            buffer[buf_offset + len++] = ((uint16_t)str_len & 0x00FF);
+        }
 
         memcpy(&buffer[buf_offset + len], (void*)str, str_len);
 

@@ -139,6 +139,7 @@ typedef struct
     };
 
     mqttnox_callback_t callback;
+    uint16_t packet_ident;
 
 } mqttnox_client_t;
 
