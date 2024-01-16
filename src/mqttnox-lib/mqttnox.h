@@ -189,9 +189,13 @@ typedef struct
 extern mqttnox_rc_t mqttnox_init(mqttnox_client_t * c);
 extern mqttnox_rc_t mqttnox_connect(mqttnox_client_t* c, mqttnox_client_conf_t* conf);
 extern mqttnox_rc_t mqttnox_publish(mqttnox_client_t * c);
-mqttnox_rc_t mqttnox_subscribe(mqttnox_client_t* c,
+extern mqttnox_rc_t mqttnox_subscribe(mqttnox_client_t* c,
                                 mqttnox_topic_sub_t* topics,
                                 uint8_t topic_cnt);
+extern mqttnox_rc_t mqttnox_unsubscribe(mqttnox_client_t* c,
+    mqttnox_topic_sub_t* topics,
+    uint8_t topic_cnt);
+
 extern mqttnox_rc_t mqttnox_disconnect(mqttnox_client_t * c);
 
 

@@ -46,7 +46,9 @@ void mqttnox_callback(mqttnox_evt_data_t * data)
 				"{\"val\": 2}");
 			
 
-			mqttnox_subscribe(&client, topics_sub, ARRAY_LEN(topics_sub));
+			//mqttnox_subscribe(&client, topics_sub, ARRAY_LEN(topics_sub));
+
+			mqttnox_unsubscribe(&client, topics_sub, ARRAY_LEN(topics_sub));
 			
 
 			break;
