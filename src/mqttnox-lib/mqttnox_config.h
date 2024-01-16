@@ -26,35 +26,27 @@
 *
 * CONTACT: info@argenox.com
 *
-* File:    mqttnox_err.h
-* Summary: MQTT Nox External APIs
+* File:    mqttnox_config.h
+* Summary: MQTTNox Library Configuration
 *
 */
 
-#ifndef _MQTTNOX_ERR_H_
-#define _MQTTNOX_ERR_H_
+#ifndef _MQTTNOX_CONFIG_H_
+#define _MQTTNOX_CONFIG_H_
+
+#include <stdint.h>
+
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define ERROR_BASE 0x00000000
-
-
-typedef enum
-{
-    MQTTNOX_SUCCESS                   = ERROR_BASE,
-    MQTTNOX_RC_ERROR                  = ERROR_BASE + 1,
-    MQTTNOX_RC_ERROR_INTERNAL         = ERROR_BASE + 2,
-    MQTTNOX_RC_ERROR_NOT_INIT         = ERROR_BASE + 3, /* Library object not initialized */
-    MQTTNOX_RC_ERROR_BAD_CLIENT_IDENT = ERROR_BASE + 4, /* Device ID not specified specified or length / characters of ID wrong */
-
-} mqttnox_rc_t;
-
+/* Size of the buffer used for sending data - impacts MQTTNOX RAM allocation */
+#define MQTTNOX_TX_BUF_SIZE 256
 
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif
+#endif /* _MQTTNOX_CONFIG_H_ */

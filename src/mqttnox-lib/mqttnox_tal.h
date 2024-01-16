@@ -2,15 +2,15 @@
 * Copyright (c) [2024] Argenox Technologies LLC
 * All rights reserved.
 *
-* PROPRIETARY AND CONFIDENTIAL
+*
 *
 * NOTICE:  All information contained herein, source code, binaries and
 * derived works is, and remains the property of Argenox and its suppliers,
 * if any.  The intellectual and technical concepts contained
-* herein are proprietary to Argenox and its suppliers and may be covered 
-* by U.S. and Foreign Patents, patents in process, and are protected by 
+* herein are proprietary to Argenox and its suppliers and may be covered
+* by U.S. and Foreign Patents, patents in process, and are protected by
 * trade secret or copyright law.
-* 
+*
 * Licensing of this software can be found in LICENSE
 *
 * THIS SOFTWARE IS PROVIDED BY ARGENOX "AS IS" AND
@@ -25,7 +25,7 @@
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *
 * CONTACT: info@argenox.com
-* 
+*
 * File:    mqtt_tal.c
 * Summary: MQTT TCP Abstraction Layer
 *
@@ -34,7 +34,14 @@
 */
 
 #include <stdint.h>
+#include "mqttnox.h"
 
+#ifndef _MQTTNOX_TAL_H_
+#define _MQTTNOX_TAL_H_
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* APIs which must be implemented by the target platform */
 
@@ -46,3 +53,10 @@ extern int mqttnox_tcp_connect(char* addr, int port);
 extern int mqttnox_tcp_send(uint8_t * data, uint16_t len);
 extern int mqttnox_tcp_disconnect(char * addr, int port);
 extern void mqttnox_wait_thread(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+
+#endif /* _MQTTNOX_TAL_H_ */

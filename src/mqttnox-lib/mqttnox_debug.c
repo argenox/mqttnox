@@ -2,15 +2,15 @@
 * Copyright (c) [2024] Argenox Technologies LLC
 * All rights reserved.
 *
-* PROPRIETARY AND CONFIDENTIAL
+*
 *
 * NOTICE:  All information contained herein, source code, binaries and
 * derived works is, and remains the property of Argenox and its suppliers,
 * if any.  The intellectual and technical concepts contained
-* herein are proprietary to Argenox and its suppliers and may be covered 
-* by U.S. and Foreign Patents, patents in process, and are protected by 
+* herein are proprietary to Argenox and its suppliers and may be covered
+* by U.S. and Foreign Patents, patents in process, and are protected by
 * trade secret or copyright law.
-* 
+*
 * Licensing of this software can be found in LICENSE
 *
 * THIS SOFTWARE IS PROVIDED BY ARGENOX "AS IS" AND
@@ -25,7 +25,7 @@
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *
 * CONTACT: info@argenox.com
-* 
+*
 * File:    mqttnox.h
 * Summary: MQTT Nox External APIs
 *

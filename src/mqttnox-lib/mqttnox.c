@@ -2,15 +2,15 @@
 * Copyright (c) [2024] Argenox Technologies LLC
 * All rights reserved.
 *
-* PROPRIETARY AND CONFIDENTIAL
+*
 *
 * NOTICE:  All information contained herein, source code, binaries and
 * derived works is, and remains the property of Argenox and its suppliers,
 * if any.  The intellectual and technical concepts contained
-* herein are proprietary to Argenox and its suppliers and may be covered 
-* by U.S. and Foreign Patents, patents in process, and are protected by 
+* herein are proprietary to Argenox and its suppliers and may be covered
+* by U.S. and Foreign Patents, patents in process, and are protected by
 * trade secret or copyright law.
-* 
+*
 * Licensing of this software can be found in LICENSE
 *
 * THIS SOFTWARE IS PROVIDED BY ARGENOX "AS IS" AND
@@ -25,7 +25,7 @@
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *
 * CONTACT: info@argenox.com
-* 
+*
 * File:    mqttnox.h
 * Summary: MQTT Nox External APIs
 *
@@ -46,18 +46,52 @@ extern "C" {
 #include "mqttnox_err.h"
 #include "common.h"
 #include "mqttnox_tal.h"
-
-#define MQTTNOX_TX_BUF_SIZE 256
+#include "mqttnox_config.h"
 
 
 static uint8_t mqttnox_tx_buf[MQTTNOX_TX_BUF_SIZE];
 
 static int mqttnox_append_utf8_string(uint8_t* buffer, char* str);
 
+
+static void mqttnox_handler_connect(mqttnox_client_t* c, uint8_t * data, uint16_t len);
+static void mqttnox_handler_connack(mqttnox_client_t* c, uint8_t * data, uint16_t len);
+static void mqttnox_handler_publish(mqttnox_client_t* c, uint8_t * data, uint16_t len);
+static void mqttnox_handler_puback(mqttnox_client_t* c, uint8_t * data, uint16_t len);
+static void mqttnox_handler_pubrec(mqttnox_client_t* c, uint8_t * data, uint16_t len);
+static void mqttnox_handler_pubrel(mqttnox_client_t* c, uint8_t * data, uint16_t len);
+static void mqttnox_handler_pubcomp(mqttnox_client_t* c, uint8_t * data, uint16_t len);
+static void mqttnox_handler_subscribe(mqttnox_client_t* c, uint8_t * data, uint16_t len);
+static void mqttnox_handler_suback(mqttnox_client_t* c, uint8_t * data, uint16_t len);
+static void mqttnox_handler_unsubscribe(mqttnox_client_t* c, uint8_t * data, uint16_t len);
+static void mqttnox_handler_unsuback(mqttnox_client_t* c, uint8_t * data, uint16_t len);
+static void mqttnox_handler_pingreq(mqttnox_client_t* c, uint8_t * data, uint16_t len);
+static void mqttnox_handler_pingresp(mqttnox_client_t* c, uint8_t * data, uint16_t len);
+static void mqttnox_handler_disconnect(mqttnox_client_t* c, uint8_t * data, uint16_t len);
+
+static void mqttnox_send_event(mqttnox_client_t* c, mqttnox_evt_data_t* data);
+
+/**@brief TCP callback for data reception
+*
+*
+* @param[in]   c    mqttnox object \see mqttnox_client_t
+* @param[in]   data pointer to buffer with the incoming data from the server
+* @param[in]   len  length of the data from the server
+*
+*/
 void mqttnox_tcp_rcv_func(mqttnox_client_t* c, uint8_t * data, uint16_t len)
 {
     mqttnox_hdr_t* hdr = NULL;
     mqttnox_response_var_hdr_t * var_hdr;
+    uint8_t data_buffer[64];
+
+    // connect_evt_t connect_evt;
+    // published_evt_t published_evt;
+    // subscribed_evt_t subscribed_evt;
+    // unsubscribed_evt_t unsubscribed_evt;
+    // pingresp_evt_t pingresp_evt;
+    // pubrel_evt_t pubrel_evt;
+    // disconnect_evt_t disconnect_evt;
 
     do
     {
@@ -69,17 +103,11 @@ void mqttnox_tcp_rcv_func(mqttnox_client_t* c, uint8_t * data, uint16_t len)
         var_hdr = (mqttnox_response_var_hdr_t*) (data + sizeof(mqttnox_hdr_t) + 2);
 
         switch (hdr->type) {
-            
+
             case MQTTNOX_CTRL_PKT_TYPE_CONNACK:
-                printf("MQTTNOX_CTRL_PKT_TYPE_CONNACK\n");                
-                printf("Return Code %x\n", var_hdr->conn_ack.conn_return_code);
-                printf("Session Present %u\n", var_hdr->conn_ack.flag_session_present);
+                
 
-                if (c != NULL && c->callback != NULL) {
-                    c->callback(MQTTNOX_EVT_CONNECT, NULL);
-                }
-
-                break;            
+                break;
             case MQTTNOX_CTRL_PKT_TYPE_PUBACK:
                 printf("MQTTNOX_CTRL_PKT_TYPE_PUBACK\n");
                 break;
@@ -91,28 +119,141 @@ void mqttnox_tcp_rcv_func(mqttnox_client_t* c, uint8_t * data, uint16_t len)
                 break;
             case MQTTNOX_CTRL_PKT_TYPE_PUBCOMP:
                 printf("MQTTNOX_CTRL_PKT_TYPE_PUBCOMP\n");
-                break;            
+                break;
             case MQTTNOX_CTRL_PKT_TYPE_SUBACK:
                 printf("MQTTNOX_CTRL_PKT_TYPE_SUBACK\n");
-                break;            
+                break;
             case MQTTNOX_CTRL_PKT_TYPE_UNSUBACK:
                 printf("MQTTNOX_CTRL_PKT_TYPE_UNSUBACK\n");
-                break;            
+                break;
             case MQTTNOX_CTRL_PKT_TYPE_PINGRESP:
                 printf("MQTTNOX_CTRL_PKT_TYPE_PINGRESP\n");
                 break;
             case MQTTNOX_CTRL_PKT_TYPE_DISCONNECT:
                 printf("MQTTNOX_CTRL_PKT_TYPE_DISCONNECT\n");
                 break;
-
         }
-
-        
-
     } while (0);
+}
 
+static void mqttnox_handler_connect(mqttnox_client_t* c, uint8_t * data, uint16_t len)
+{
+    mqttnox_hdr_t* hdr = NULL;
+    mqttnox_response_var_hdr_t * var_hdr;
+    uint8_t data_buffer[64];
+    mqttnox_evt_data_t * connect_evt = (mqttnox_evt_data_t *)data_buffer;
+
+    printf("MQTTNOX_CTRL_PKT_TYPE_CONNACK\n");
+    printf("Return Code %x\n", var_hdr->conn_ack.conn_return_code);
+    printf("Session Present %u\n", var_hdr->conn_ack.flag_session_present);
+
+    switch(var_hdr->conn_ack.conn_return_code)
+    {
+        case MQTTNOX_CONNECTION_RC_ACCEPTED:
+            printf("Successful\n");
+            connect_evt->evt_id = MQTTNOX_EVT_CONNECT;
+            connect_evt->evt.connect_evt.session_present = var_hdr->conn_ack.flag_session_present;
+
+            mqttnox_send_event(c, connect_evt);
+
+
+            break;
+        case MQTTNOX_CONNECTION_RC_REFUSED_UNACCP_PROT_VER:
+            printf("Connection Refused, unacceptable protocol version\n");
+            break;
+        case MQTTNOX_CONNECTION_RC_REFUSED_IDENT_REJECTED:
+            printf("Connection Refused, identifier rejected\n");
+            break;
+        case MQTTNOX_CONNECTION_RC_REFUSED_SERVER_UNAVAIL:
+            printf("Connection Refused, Server Unavailable\n");
+            break;
+        case MQTTNOX_CONNECTION_RC_REFUSED_BAD_USER_PASS:
+            printf("Connection Refused, Bad Username or Password\n");
+            break;
+        case MQTTNOX_CONNECTION_RC_REFUSED_NOT_AUTH:
+            printf("Connection Refused, Not authorized\n");
+            break;
+        default:
+            printf("Unknown error - invalid\n");
+    }
 
 }
+
+static void mqttnox_handler_connack(mqttnox_client_t* c, uint8_t * data, uint16_t len)
+{
+
+}
+
+static void mqttnox_handler_publish(mqttnox_client_t* c, uint8_t * data, uint16_t len)
+{
+
+}
+
+static void mqttnox_handler_puback(mqttnox_client_t* c, uint8_t * data, uint16_t len)
+{
+
+}
+
+static void mqttnox_handler_pubrec(mqttnox_client_t* c, uint8_t * data, uint16_t len)
+{
+
+}
+
+static void mqttnox_handler_pubrel(mqttnox_client_t* c, uint8_t * data, uint16_t len)
+{
+
+}
+
+static void mqttnox_handler_pubcomp(mqttnox_client_t* c, uint8_t * data, uint16_t len)
+{
+
+}
+
+static void mqttnox_handler_subscribe(mqttnox_client_t* c, uint8_t * data, uint16_t len)
+{
+
+}
+
+static void mqttnox_handler_suback(mqttnox_client_t* c, uint8_t * data, uint16_t len)
+{
+
+}
+
+static void mqttnox_handler_unsubscribe(mqttnox_client_t* c, uint8_t * data, uint16_t len)
+{
+
+}
+
+static void mqttnox_handler_unsuback(mqttnox_client_t* c, uint8_t * data, uint16_t len)
+{
+
+}
+
+static void mqttnox_handler_pingreq(mqttnox_client_t* c, uint8_t * data, uint16_t len)
+{
+
+}
+
+static void mqttnox_handler_pingresp(mqttnox_client_t* c, uint8_t * data, uint16_t len)
+{
+
+}
+
+static void mqttnox_handler_disconnect(mqttnox_client_t* c, uint8_t * data, uint16_t len)
+{
+
+}
+
+
+
+static void mqttnox_send_event(mqttnox_client_t* c, mqttnox_evt_data_t * data)
+{
+    /* Ensure callback is valid */
+    if (c != NULL && c->callback != NULL) {
+        c->callback(data);
+    }
+}
+
 
 /**@brief Initialization of the MQTT Client
 *
@@ -145,7 +286,6 @@ mqttnox_rc_t mqttnox_connect(mqttnox_client_t * c, mqttnox_client_conf_t * conf)
     mqttnox_connect_var_hdr_t var_hdr;
     uint16_t pkt_len = 0;
     int irc;
-
 
     do
     {
@@ -181,7 +321,7 @@ mqttnox_rc_t mqttnox_connect(mqttnox_client_t * c, mqttnox_client_conf_t * conf)
         var_hdr.flag_password = 0;
 
         if (conf->auth.username != NULL && strlen(conf->auth.username)) {
-            var_hdr.flag_user_name = 1;         
+            var_hdr.flag_user_name = 1;
 
             if (conf->auth.password != NULL && strlen(conf->auth.password)) {
                 var_hdr.flag_password = 1;
@@ -192,7 +332,7 @@ mqttnox_rc_t mqttnox_connect(mqttnox_client_t * c, mqttnox_client_conf_t * conf)
         if (conf->clean_session) {
             var_hdr.flag_clean_session = 1;
         }
-       
+
         /* If either msg or topic are specified, then we need both msg and topic */
         if (conf->will_topic.msg == NULL && conf->will_topic.topic == NULL) {
             var_hdr.flag_will = 0;
@@ -232,7 +372,7 @@ mqttnox_rc_t mqttnox_connect(mqttnox_client_t * c, mqttnox_client_conf_t * conf)
         /* Skip Remaining length for now - updated later */
         pkt_len += 1;
 
-        /* Copy Variable Header*/ 
+        /* Copy Variable Header*/
         memcpy(&mqttnox_tx_buf[pkt_len], (void*)&var_hdr, sizeof(var_hdr));
         pkt_len += sizeof(var_hdr);
 
@@ -274,7 +414,7 @@ mqttnox_rc_t mqttnox_connect(mqttnox_client_t * c, mqttnox_client_conf_t * conf)
 
         /* Send the connect packet, response is received async */
         rc_i = mqttnox_tcp_send(mqttnox_tx_buf, pkt_len);
-        
+
 
         rc = MQTTNOX_SUCCESS;
     } while(0);

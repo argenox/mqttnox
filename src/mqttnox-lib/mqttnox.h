@@ -2,15 +2,15 @@
 * Copyright (c) [2024] Argenox Technologies LLC
 * All rights reserved.
 *
-* PROPRIETARY AND CONFIDENTIAL
+*
 *
 * NOTICE:  All information contained herein, source code, binaries and
 * derived works is, and remains the property of Argenox and its suppliers,
 * if any.  The intellectual and technical concepts contained
-* herein are proprietary to Argenox and its suppliers and may be covered 
-* by U.S. and Foreign Patents, patents in process, and are protected by 
+* herein are proprietary to Argenox and its suppliers and may be covered
+* by U.S. and Foreign Patents, patents in process, and are protected by
 * trade secret or copyright law.
-* 
+*
 * Licensing of this software can be found in LICENSE
 *
 * THIS SOFTWARE IS PROVIDED BY ARGENOX "AS IS" AND
@@ -25,7 +25,7 @@
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *
 * CONTACT: info@argenox.com
-* 
+*
 * File:    mqttnox.h
 * Summary: MQTT Nox External APIs
 *
@@ -42,25 +42,7 @@ extern "C" {
 #endif
 
 #include "mqttnox_err.h"
-
-
-/** Flag inidicating initialization */
-#define MQTTNOX_INIT_FLAG 0x41474E58
-
-#define MAX_STR_LEN 64
-
-#define MQTT_LENGTH_FIELD_OFFSET 1
-
-typedef enum 
-{
-    MQTTNOX_CONNECTION_RC_ACCEPTED                = 0x00,
-    MQTTNOX_CONNECTION_RC_REFUSED_UNACCP_PROT_VER = 0x01, /* Connection Refused, unacceptable protocol version */
-    MQTTNOX_CONNECTION_RC_REFUSED_IDENT_REJECTED  = 0x02, /* Connection Refused, identifier rejected */
-    MQTTNOX_CONNECTION_RC_REFUSED_SERVER_UNAVAIL  = 0x03, /* Connection Refused, Server Unavailable */
-    MQTTNOX_CONNECTION_RC_REFUSED_BAD_USER_PASS   = 0x04, /* Connection Refused, Bad Username or Password */
-    MQTTNOX_CONNECTION_RC_REFUSED_NOT_AUTH        = 0x05, /* Connection Refused, Not authorized */
-
-} mqttnox_connect_rc_t;
+#include "mqttnoxlib.h"
 
 typedef enum
 {
@@ -77,58 +59,9 @@ typedef enum {
     MQTTNOX_EVT_PINGRESP,
     MQTTNOX_EVT_PUBREL,
     MQTTNOX_EVT_DISCONNECT,
-    
+    MQTTNOX_EVT_ERROR,
+
 } mqttnox_evt_id_t;
-
-
-
-/* Callback */
-typedef void (*mqttnox_callback_t)(mqttnox_evt_id_t evt, char * topic);
-
-typedef struct
-{
-    uint32_t flag_initialized; /** Inidiates the client object is successfully initialized */
-
-    struct status {
-        uint8_t connected : 1;
-    };
-
-    mqttnox_callback_t callback;
-
-} mqttnox_client_t;
-
-typedef struct
-{
-    struct {
-        char* addr; /* URL or IP Address*/
-        uint16_t port; /* Port to use */
-    } server;
-
-    struct {
-        char* username;
-        char* password;
-    } auth;
-
-    /* Will Topic */
-
-    struct  {
-        char*   topic;
-        char*   msg;
-        mqttnox_qos_t qos;
-        uint8_t retain;
-    } will_topic;
-
-    uint8_t clean_session : 1;
-    char* client_identifier; /* Unique Client Identifier - Usually up to 23 characters */
-
-    /** Callback used for async event handling. Note that this callback is called in the context
-        of the mqttnox thread, so care must be taken to avoid a stack overflow by either increasing
-        the mqttnox thread's stack, or by minimizing stack usage and passing event data to a task
-        for processing 
-     */
-    mqttnox_callback_t callback; 
-
-} mqttnox_client_conf_t;
 
 
 
@@ -178,7 +111,7 @@ typedef struct
 
 typedef struct
 {
-    mqttnox_evt_id_t evt; /* Indicates which event occured */
+    mqttnox_evt_id_t evt_id; /* Indicates which event occured */
 
     /* Event information */
     union {
@@ -189,9 +122,60 @@ typedef struct
         pingresp_evt_t pingresp_evt;
         pubrel_evt_t pubrel_evt;
         disconnect_evt_t disconnect_evt;
-    };
+    }evt;
 
 } mqttnox_evt_data_t;
+
+
+/* Callback */
+typedef void (*mqttnox_callback_t)(mqttnox_evt_data_t * evt_data);
+
+typedef struct
+{
+    uint32_t flag_initialized; /** Inidiates the client object is successfully initialized */
+
+    struct status {
+        uint8_t connected : 1;
+    };
+
+    mqttnox_callback_t callback;
+
+} mqttnox_client_t;
+
+typedef struct
+{
+    struct {
+        char* addr; /* URL or IP Address*/
+        uint16_t port; /* Port to use */
+    } server;
+
+    struct {
+        char* username;
+        char* password;
+    } auth;
+
+    /* Will Topic */
+
+    struct  {
+        char*   topic;
+        char*   msg;
+        mqttnox_qos_t qos;
+        uint8_t retain;
+    } will_topic;
+
+    uint8_t clean_session : 1;
+    char* client_identifier; /* Unique Client Identifier - Usually up to 23 characters */
+
+    /** Callback used for async event handling. Note that this callback is called in the context
+        of the mqttnox thread, so care must be taken to avoid a stack overflow by either increasing
+        the mqttnox thread's stack, or by minimizing stack usage and passing event data to a task
+        for processing
+     */
+    mqttnox_callback_t callback;
+
+} mqttnox_client_conf_t;
+
+
 
 
 extern mqttnox_rc_t mqttnox_init(mqttnox_client_t * c);

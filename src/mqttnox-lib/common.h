@@ -2,7 +2,7 @@
 * Copyright (c) [2024] Argenox Technologies LLC
 * All rights reserved.
 *
-* PROPRIETARY AND CONFIDENTIAL
+*
 *
 * NOTICE:  All information contained herein, source code, binaries and
 * derived works is, and remains the property of Argenox and its suppliers,

@@ -2,15 +2,15 @@
 * Copyright (c) [2024] Argenox Technologies LLC
 * All rights reserved.
 *
-* PROPRIETARY AND CONFIDENTIAL
+*
 *
 * NOTICE:  All information contained herein, source code, binaries and
 * derived works is, and remains the property of Argenox and its suppliers,
 * if any.  The intellectual and technical concepts contained
-* herein are proprietary to Argenox and its suppliers and may be covered 
-* by U.S. and Foreign Patents, patents in process, and are protected by 
+* herein are proprietary to Argenox and its suppliers and may be covered
+* by U.S. and Foreign Patents, patents in process, and are protected by
 * trade secret or copyright law.
-* 
+*
 * Licensing of this software can be found in LICENSE
 *
 * THIS SOFTWARE IS PROVIDED BY ARGENOX "AS IS" AND
@@ -25,7 +25,7 @@
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *
 * CONTACT: info@argenox.com
-* 
+*
 * File:    mqttnoxlib.h
 * Summary: MQTT Nox Internal Library definitions
 *
@@ -44,16 +44,32 @@ extern "C" {
 #include "mqttnox_err.h"
 #include "common.h"
 
+/** Flag inidicating initialization */
+#define MQTTNOX_INIT_FLAG 0x41474E58
+
 #define MQTT_CONN_PROTOCOL_NAME_LEN   4
 #define MQTT_CONN_DEFAULT_KEEPALIVE   60
 #define MQTT_CONN_PROTOCOL_NAME       "MQTT"
-
 #define MQTT_PROTO_LVL_VERSION_V3_1_1 4
-
 #define MQTT_MAX_DEVICE_ID_LEN        23
+#define MAX_STR_LEN                   64
+#define MQTT_LENGTH_FIELD_OFFSET      1
+
+typedef enum
+{
+    MQTTNOX_CONNECTION_RC_ACCEPTED                = 0x00,
+    MQTTNOX_CONNECTION_RC_REFUSED_UNACCP_PROT_VER = 0x01, /* Connection Refused, unacceptable protocol version */
+    MQTTNOX_CONNECTION_RC_REFUSED_IDENT_REJECTED  = 0x02, /* Connection Refused, identifier rejected */
+    MQTTNOX_CONNECTION_RC_REFUSED_SERVER_UNAVAIL  = 0x03, /* Connection Refused, Server Unavailable */
+    MQTTNOX_CONNECTION_RC_REFUSED_BAD_USER_PASS   = 0x04, /* Connection Refused, Bad Username or Password */
+    MQTTNOX_CONNECTION_RC_REFUSED_NOT_AUTH        = 0x05, /* Connection Refused, Not authorized */
+
+} mqttnox_connect_rc_t;
+
+
 
 #pragma pack(push, 1)
-typedef struct {    
+typedef struct {
 
     uint8_t name_len_msb;
     uint8_t name_len_lsb;
@@ -71,7 +87,7 @@ typedef struct {
 
     uint8_t keepalive_msb;
     uint8_t keepalive_lsb;
-    
+
 } mqttnox_connect_var_hdr_t;
 
 #pragma pack(pop)
@@ -93,8 +109,8 @@ typedef struct {
 typedef union
 {
     mqttnox_connack_var_hdr_t conn_ack;
-    
-    
+
+
 } mqttnox_response_var_hdr_t;
 
 
@@ -125,12 +141,12 @@ typedef enum {
 #pragma pack(push, 1)
 
 typedef struct
-{   
+{
     uint8_t retain               : 1;
     uint8_t qos                  : 2;
     uint8_t dup                  : 1;
-    uint8_t type : 4;    
-    
+    uint8_t type : 4;
+
 } _COMPILER_PACK mqttnox_hdr_t;
 
 #pragma pack(pop)

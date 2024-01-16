@@ -18,13 +18,14 @@
 	   for processing.
 *
 * @param[in]   evt   The event being handled, \see mqttnox_evt_id_t
-* @param[in]   topic the topic topic if relevant to the event
+* @param[in]   data  contains the data for the event, depending on evt type
 */
-void mqttnox_callback(mqttnox_evt_id_t evt, char* topic)
+void mqttnox_callback(mqttnox_evt_data_t * data)
 {
-	switch (evt)
+	switch (data->evt_id)
 	{
 		case MQTTNOX_EVT_CONNECT:
+			printf("MQTT Connected\n");
 			break;
 		case MQTTNOX_EVT_PUBLISHED:
 			break;
@@ -37,6 +38,8 @@ void mqttnox_callback(mqttnox_evt_id_t evt, char* topic)
 		case MQTTNOX_EVT_PUBREL:
 			break;
 		case MQTTNOX_EVT_DISCONNECT:
+			break;
+		case MQTTNOX_EVT_ERROR:
 			break;
 	}
 }

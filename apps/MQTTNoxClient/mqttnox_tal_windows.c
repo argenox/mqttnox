@@ -2,15 +2,15 @@
 * Copyright (c) [2024] Argenox Technologies LLC
 * All rights reserved.
 *
-* PROPRIETARY AND CONFIDENTIAL
+*
 *
 * NOTICE:  All information contained herein, source code, binaries and
 * derived works is, and remains the property of Argenox and its suppliers,
 * if any.  The intellectual and technical concepts contained
-* herein are proprietary to Argenox and its suppliers and may be covered 
-* by U.S. and Foreign Patents, patents in process, and are protected by 
+* herein are proprietary to Argenox and its suppliers and may be covered
+* by U.S. and Foreign Patents, patents in process, and are protected by
 * trade secret or copyright law.
-* 
+*
 * Licensing of this software can be found in LICENSE
 *
 * THIS SOFTWARE IS PROVIDED BY ARGENOX "AS IS" AND
@@ -25,7 +25,7 @@
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *
 * CONTACT: info@argenox.com
-* 
+*
 * File:    mqttnox_tal_windows.h
 * Summary: MQTTNox TCP Windows Implementation
 *
@@ -61,7 +61,7 @@ extern "C" {
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include <sys/types.h> 
+#include <sys/types.h>
 #include <process.h>
 #include <stdint.h>
 #include <errno.h>
@@ -92,7 +92,7 @@ static uint8_t received_length = 0;
 
 
 static mqttnox_tcp_rcv_t mqttnox_tcp_rcv_cback;
-static mqttnox_client_t* client= NULL;
+static mqttnox_client_t* client = NULL;
 
 mqttnox_tcp_rcv_t data_callback = NULL;
 
@@ -166,7 +166,7 @@ int mqttnox_tcp_connect(char * addr, int port)
     // {
     //     fprintf(stderr, "Error - pthread_create() return value: %d\n", ret_val_t1);
     //     exit(EXIT_FAILURE);
-    // }    
+    // }
 
     int iResult;
     struct sockaddr_in server;
@@ -174,14 +174,14 @@ int mqttnox_tcp_connect(char * addr, int port)
     char addrstr[32];
 
     int sock = -1;
-    
+
     connection_t * connection;
-    
+
     printf("Client TCP thread\n");
 
     struct addrinfo* result = NULL;
     struct addrinfo hints;
-        
+
     // Initialize Winsock
     iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
     if (iResult != 0) {
@@ -218,7 +218,7 @@ int mqttnox_tcp_connect(char * addr, int port)
 
     ptr = &((struct sockaddr_in*)result->ai_addr)->sin_addr;
     inet_ntop(result->ai_family, ptr, addrstr, sizeof(addrstr));
-    
+
 
     /* Deallocate */
     freeaddrinfo(result);
@@ -235,7 +235,7 @@ int mqttnox_tcp_connect(char * addr, int port)
 	}
 
     printf("Ready and listening\n");
-    
+
     connection = (connection_t*)malloc(sizeof(connection_t));
     if (connection == NULL) {
         return -1;
@@ -305,7 +305,7 @@ int connection_thread(void * ptr)
 
 
         iResult = recv(ClientSocket, main_buffer, sizeof(main_buffer), 0);
-#if 0  
+#if 0
         if (iResult > 0)
             printf("Bytes received: %d\n", iResult);
         else
@@ -334,7 +334,7 @@ int connection_thread(void * ptr)
             printf("Here Received %d\n", len);
 
             printf("-----Data[%d]: ", len);
-            
+
             for(i = 0; i < len; i++)
             {
                 printf("%02X ", main_buffer[i]);
@@ -399,7 +399,7 @@ int connection_thread(void * ptr)
             /* Send data */
              //write(sock, &send_length, sizeof(send_length));
 
-           
+
 
             //Now unlock the mutex
             //pthread_mutex_unlock(&queueMutex);
@@ -434,7 +434,7 @@ int connection_thread(void * ptr)
     }
     /* close socket and clean up */
     //close(conn->sock);
-    
+
     //free(conn);
     //pthread_exit(0);
 
