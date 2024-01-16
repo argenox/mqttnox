@@ -233,6 +233,8 @@ mqttnox_rc_t mqttnox_init(mqttnox_client_t * c)
 {
     memset((void *)c, 0, sizeof(mqttnox_client_t));
 
+    c->packet_ident = 1;
+
     /* Set to initialized */
     c->flag_initialized = MQTTNOX_INIT_FLAG;
 
@@ -446,6 +448,7 @@ mqttnox_rc_t mqttnox_publish(mqttnox_client_t * c,
             /* Add packet identifier */
             mqttnox_tx_buf[pkt_len++] = MSB(c->packet_ident);
             mqttnox_tx_buf[pkt_len++] = LSB(c->packet_ident);
+            c->packet_ident++;
         }
 
         /* Msg does not have length */
@@ -473,19 +476,65 @@ mqttnox_rc_t mqttnox_publish(mqttnox_client_t * c,
 * @param[in]   lhs   Left hand side in concatenation
 * @param[in]   rhs   Right hand side in concatenation
 */
-mqttnox_rc_t mqttnox_subscribe(mqttnox_client_t * c)
+mqttnox_rc_t mqttnox_subscribe(mqttnox_client_t * c,
+                               mqttnox_topic_sub_t * topics,
+                               uint8_t topic_cnt)
 {
     mqttnox_rc_t rc = MQTTNOX_RC_ERROR;
+    mqttnox_hdr_t hdr;
+    mqttnox_connect_var_hdr_t var_hdr;
+    uint16_t pkt_len = 0;
+    size_t i = 0;
+    int irc;
+
     do
     {
-        if(c->flag_initialized != MQTTNOX_INIT_FLAG) {
+        if (c->flag_initialized != MQTTNOX_INIT_FLAG) {
             rc = MQTTNOX_RC_ERROR_NOT_INIT;
             break;
         }
 
-        rc = MQTTNOX_SUCCESS;
+        MEMZERO_S(hdr);
+        MEMZERO_S(var_hdr);
 
-    } while(0);
+        /* Initialize fixed header */
+        hdr.type = MQTTNOX_CTRL_PKT_TYPE_SUBSCRIBE;
+        
+
+        MEMZERO(mqttnox_tx_buf);
+
+        /* Copy Fixed Header */
+        memcpy(mqttnox_tx_buf, (void*)&hdr, sizeof(hdr));
+        mqttnox_tx_buf[0] |= 0x2; /* Required */
+        pkt_len += sizeof(hdr);
+
+        /* Skip Remaining length for now - updated later */
+        pkt_len += 1;
+
+        /* Add packet identifier */
+        mqttnox_tx_buf[pkt_len++] = MSB(c->packet_ident);
+        mqttnox_tx_buf[pkt_len++] = LSB(c->packet_ident);
+        c->packet_ident++;
+
+
+        for (i = 0; i < topic_cnt; i++) {
+            irc = mqttnox_append_utf8_string(&mqttnox_tx_buf[pkt_len], topics[i].topic, 1);
+            if (irc > 0) {
+                pkt_len += irc;
+            }
+
+            /* Add qos */
+            mqttnox_tx_buf[pkt_len++] = topics[i].qos & 0x03;
+        }
+
+        mqttnox_tx_buf[MQTT_LENGTH_FIELD_OFFSET] = pkt_len - 2;
+
+        /* Send the connect packet, response is received async */
+        irc = mqttnox_tcp_send(mqttnox_tx_buf, pkt_len);
+
+
+        rc = MQTTNOX_SUCCESS;
+    } while (0);
 
     return rc;
 }

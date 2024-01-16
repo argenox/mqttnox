@@ -8,6 +8,12 @@
 mqttnox_client_t client = { 0 };
 mqttnox_client_conf_t client_conf = { 0 };
 
+mqttnox_topic_sub_t topics_sub[] =
+{
+	{"/test/val", },
+	{"/test/val2", },
+};
+
 /** Callback used for async MQTT event handling. Note that this callback is called in the context
 	   of the mqttnox thread, so care must be taken to avoid a stack overflow by either increasing
 	   the mqttnox thread's stack, or by minimizing stack usage and passing event data to a task
@@ -31,12 +37,17 @@ void mqttnox_callback(mqttnox_evt_data_t * data)
 		case MQTTNOX_EVT_CONNECT:
 			printf("[App] MQTT Connected\n");
 
+			
 			mqttnox_publish(&client,
 				MQTTNOX_QOS0_AT_MOST_ONCE_DELIV,
 				0,
 				0,
 				"/test/val",
 				"{\"val\": 2}");
+			
+
+			mqttnox_subscribe(&client, topics_sub, ARRAY_LEN(topics_sub));
+			
 
 			break;
 		case MQTTNOX_EVT_PUBLISHED:
