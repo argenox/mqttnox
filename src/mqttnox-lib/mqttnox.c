@@ -54,18 +54,13 @@ static uint8_t mqttnox_tx_buf[MQTTNOX_TX_BUF_SIZE];
 static int mqttnox_append_utf8_string(uint8_t* buffer, char* str);
 
 
-static void mqttnox_handler_connect(mqttnox_client_t* c, uint8_t * data, uint16_t len);
 static void mqttnox_handler_connack(mqttnox_client_t* c, uint8_t * data, uint16_t len);
-static void mqttnox_handler_publish(mqttnox_client_t* c, uint8_t * data, uint16_t len);
 static void mqttnox_handler_puback(mqttnox_client_t* c, uint8_t * data, uint16_t len);
 static void mqttnox_handler_pubrec(mqttnox_client_t* c, uint8_t * data, uint16_t len);
 static void mqttnox_handler_pubrel(mqttnox_client_t* c, uint8_t * data, uint16_t len);
 static void mqttnox_handler_pubcomp(mqttnox_client_t* c, uint8_t * data, uint16_t len);
-static void mqttnox_handler_subscribe(mqttnox_client_t* c, uint8_t * data, uint16_t len);
 static void mqttnox_handler_suback(mqttnox_client_t* c, uint8_t * data, uint16_t len);
-static void mqttnox_handler_unsubscribe(mqttnox_client_t* c, uint8_t * data, uint16_t len);
 static void mqttnox_handler_unsuback(mqttnox_client_t* c, uint8_t * data, uint16_t len);
-static void mqttnox_handler_pingreq(mqttnox_client_t* c, uint8_t * data, uint16_t len);
 static void mqttnox_handler_pingresp(mqttnox_client_t* c, uint8_t * data, uint16_t len);
 static void mqttnox_handler_disconnect(mqttnox_client_t* c, uint8_t * data, uint16_t len);
 
@@ -83,16 +78,7 @@ void mqttnox_tcp_rcv_func(mqttnox_client_t* c, uint8_t * data, uint16_t len)
 {
     mqttnox_hdr_t* hdr = NULL;
     mqttnox_response_var_hdr_t * var_hdr;
-    uint8_t data_buffer[64];
-
-    // connect_evt_t connect_evt;
-    // published_evt_t published_evt;
-    // subscribed_evt_t subscribed_evt;
-    // unsubscribed_evt_t unsubscribed_evt;
-    // pingresp_evt_t pingresp_evt;
-    // pubrel_evt_t pubrel_evt;
-    // disconnect_evt_t disconnect_evt;
-
+    
     do
     {
         if (data == NULL) {
@@ -104,93 +90,89 @@ void mqttnox_tcp_rcv_func(mqttnox_client_t* c, uint8_t * data, uint16_t len)
 
         switch (hdr->type) {
 
-            case MQTTNOX_CTRL_PKT_TYPE_CONNACK:
-                
-
+            case MQTTNOX_CTRL_PKT_TYPE_CONNACK:                
+                mqttnox_handler_connack(c, data, len);
                 break;
-            case MQTTNOX_CTRL_PKT_TYPE_PUBACK:
-                printf("MQTTNOX_CTRL_PKT_TYPE_PUBACK\n");
+            case MQTTNOX_CTRL_PKT_TYPE_PUBACK:                
+                mqttnox_handler_puback(c, data, len);
                 break;
             case MQTTNOX_CTRL_PKT_TYPE_PUBREC:
                 printf("MQTTNOX_CTRL_PKT_TYPE_PUBREC\n");
+                mqttnox_handler_pubrec(c, data, len);
                 break;
             case MQTTNOX_CTRL_PKT_TYPE_PUBREL:
                 printf("MQTTNOX_CTRL_PKT_TYPE_PUBREL\n");
+                mqttnox_handler_pubrel(c, data, len);
                 break;
             case MQTTNOX_CTRL_PKT_TYPE_PUBCOMP:
                 printf("MQTTNOX_CTRL_PKT_TYPE_PUBCOMP\n");
+                mqttnox_handler_pubcomp(c, data, len);
                 break;
             case MQTTNOX_CTRL_PKT_TYPE_SUBACK:
                 printf("MQTTNOX_CTRL_PKT_TYPE_SUBACK\n");
+                mqttnox_handler_suback(c, data, len);
                 break;
             case MQTTNOX_CTRL_PKT_TYPE_UNSUBACK:
                 printf("MQTTNOX_CTRL_PKT_TYPE_UNSUBACK\n");
+                mqttnox_handler_unsuback(c, data, len);
                 break;
             case MQTTNOX_CTRL_PKT_TYPE_PINGRESP:
                 printf("MQTTNOX_CTRL_PKT_TYPE_PINGRESP\n");
+                mqttnox_handler_pingresp(c, data, len);
                 break;
             case MQTTNOX_CTRL_PKT_TYPE_DISCONNECT:
                 printf("MQTTNOX_CTRL_PKT_TYPE_DISCONNECT\n");
+                mqttnox_handler_disconnect(c, data, len);
                 break;
         }
     } while (0);
 }
 
-static void mqttnox_handler_connect(mqttnox_client_t* c, uint8_t * data, uint16_t len)
-{
-    mqttnox_hdr_t* hdr = NULL;
-    mqttnox_response_var_hdr_t * var_hdr;
+static void mqttnox_handler_connack(mqttnox_client_t* c, uint8_t * data, uint16_t len)
+{    
     uint8_t data_buffer[64];
-    mqttnox_evt_data_t * connect_evt = (mqttnox_evt_data_t *)data_buffer;
+    mqttnox_evt_data_t* evt_data = (mqttnox_evt_data_t*)data_buffer;
+    mqttnox_response_var_hdr_t* var_hdr = (mqttnox_response_var_hdr_t*)(data + sizeof(mqttnox_hdr_t) + 2);
 
     printf("MQTTNOX_CTRL_PKT_TYPE_CONNACK\n");
     printf("Return Code %x\n", var_hdr->conn_ack.conn_return_code);
     printf("Session Present %u\n", var_hdr->conn_ack.flag_session_present);
 
-    switch(var_hdr->conn_ack.conn_return_code)
+    switch (var_hdr->conn_ack.conn_return_code)
     {
-        case MQTTNOX_CONNECTION_RC_ACCEPTED:
-            printf("Successful\n");
-            connect_evt->evt_id = MQTTNOX_EVT_CONNECT;
-            connect_evt->evt.connect_evt.session_present = var_hdr->conn_ack.flag_session_present;
+    case MQTTNOX_CONNECTION_RC_ACCEPTED:
+        printf("Successful\n");
+        
+        evt_data->evt_id = MQTTNOX_EVT_CONNECT;
+        evt_data->evt.connect_evt.session_present = var_hdr->conn_ack.flag_session_present;
 
-            mqttnox_send_event(c, connect_evt);
+        mqttnox_send_event(c, evt_data);
 
-
-            break;
-        case MQTTNOX_CONNECTION_RC_REFUSED_UNACCP_PROT_VER:
-            printf("Connection Refused, unacceptable protocol version\n");
-            break;
-        case MQTTNOX_CONNECTION_RC_REFUSED_IDENT_REJECTED:
-            printf("Connection Refused, identifier rejected\n");
-            break;
-        case MQTTNOX_CONNECTION_RC_REFUSED_SERVER_UNAVAIL:
-            printf("Connection Refused, Server Unavailable\n");
-            break;
-        case MQTTNOX_CONNECTION_RC_REFUSED_BAD_USER_PASS:
-            printf("Connection Refused, Bad Username or Password\n");
-            break;
-        case MQTTNOX_CONNECTION_RC_REFUSED_NOT_AUTH:
-            printf("Connection Refused, Not authorized\n");
-            break;
-        default:
-            printf("Unknown error - invalid\n");
+        break;
+    case MQTTNOX_CONNECTION_RC_REFUSED_UNACCP_PROT_VER:
+        printf("Connection Refused, unacceptable protocol version\n");
+        break;
+    case MQTTNOX_CONNECTION_RC_REFUSED_IDENT_REJECTED:
+        printf("Connection Refused, identifier rejected\n");
+        break;
+    case MQTTNOX_CONNECTION_RC_REFUSED_SERVER_UNAVAIL:
+        printf("Connection Refused, Server Unavailable\n");
+        break;
+    case MQTTNOX_CONNECTION_RC_REFUSED_BAD_USER_PASS:
+        printf("Connection Refused, Bad Username or Password\n");
+        break;
+    case MQTTNOX_CONNECTION_RC_REFUSED_NOT_AUTH:
+        printf("Connection Refused, Not authorized\n");
+        break;
+    default:
+        printf("Unknown error - invalid\n");
     }
-
 }
 
-static void mqttnox_handler_connack(mqttnox_client_t* c, uint8_t * data, uint16_t len)
-{
-
-}
-
-static void mqttnox_handler_publish(mqttnox_client_t* c, uint8_t * data, uint16_t len)
-{
-
-}
 
 static void mqttnox_handler_puback(mqttnox_client_t* c, uint8_t * data, uint16_t len)
 {
+    printf("MQTTNOX_CTRL_PKT_TYPE_PUBACK\n");
 
 }
 
@@ -209,27 +191,12 @@ static void mqttnox_handler_pubcomp(mqttnox_client_t* c, uint8_t * data, uint16_
 
 }
 
-static void mqttnox_handler_subscribe(mqttnox_client_t* c, uint8_t * data, uint16_t len)
-{
-
-}
-
 static void mqttnox_handler_suback(mqttnox_client_t* c, uint8_t * data, uint16_t len)
 {
 
 }
 
-static void mqttnox_handler_unsubscribe(mqttnox_client_t* c, uint8_t * data, uint16_t len)
-{
-
-}
-
 static void mqttnox_handler_unsuback(mqttnox_client_t* c, uint8_t * data, uint16_t len)
-{
-
-}
-
-static void mqttnox_handler_pingreq(mqttnox_client_t* c, uint8_t * data, uint16_t len)
 {
 
 }
@@ -422,31 +389,6 @@ mqttnox_rc_t mqttnox_connect(mqttnox_client_t * c, mqttnox_client_conf_t * conf)
     return rc;
 }
 
-static int mqttnox_append_utf8_string(uint8_t* buffer, char* str)
-{
-    uint16_t len = 0;
-    uint16_t str_len = 0;
-    uint16_t buf_offset = 0;
-
-    if (buffer != NULL) {
-        buf_offset = strlen(buffer);
-    }
-
-    if( str != NULL && (strlen(str) > 0) && buffer != NULL) {
-
-        str_len = strlen(str);
-
-        buffer[buf_offset + len++] = (str_len & 0xFF00) >> 8;
-        buffer[buf_offset + len++] = (str_len & 0x00FF);
-
-        memcpy(&buffer[buf_offset + len], (void*)str, str_len);
-
-        return str_len + len;
-    }
-
-    return -1;
-}
-
 /**@brief Macro used to concatenate string using delayed macro expansion
 *
 * @note This macro will delay concatenation until the expressions have been resolved
@@ -511,12 +453,39 @@ mqttnox_rc_t mqttnox_disconnect(mqttnox_client_t * c)
             break;
         }
 
+        mqttnox_tcp_disconnect();
+
         rc = MQTTNOX_SUCCESS;
     } while(0);
 
     return rc;
 }
 
+
+static int mqttnox_append_utf8_string(uint8_t* buffer, char* str)
+{
+    uint16_t len = 0;
+    size_t str_len = 0;
+    size_t buf_offset = 0;
+
+    if (buffer != NULL) {
+        buf_offset = strlen(buffer);
+    }
+
+    if (str != NULL && (strlen(str) > 0) && buffer != NULL) {
+
+        str_len = strlen(str);
+
+        buffer[buf_offset + len++] = ((uint16_t)str_len & 0xFF00) >> 8;
+        buffer[buf_offset + len++] = ((uint16_t)str_len & 0x00FF);
+
+        memcpy(&buffer[buf_offset + len], (void*)str, str_len);
+
+        return (uint16_t)str_len + len;
+    }
+
+    return -1;
+}
 
 #ifdef __cplusplus
 }

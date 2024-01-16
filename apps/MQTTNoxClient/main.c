@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "mqttnox.h"
+#include "mqttnox_tal.h"
 
 /** Callback used for async MQTT event handling. Note that this callback is called in the context
 	   of the mqttnox thread, so care must be taken to avoid a stack overflow by either increasing
@@ -25,21 +26,27 @@ void mqttnox_callback(mqttnox_evt_data_t * data)
 	switch (data->evt_id)
 	{
 		case MQTTNOX_EVT_CONNECT:
-			printf("MQTT Connected\n");
+			printf("[App] MQTT Connected\n");
 			break;
 		case MQTTNOX_EVT_PUBLISHED:
+			printf("[App] MQTT Published\n");
 			break;
 		case MQTTNOX_EVT_SUBSCRIBED:
+			printf("[App] MQTT Subscribed to Topic\n");
 			break;
 		case MQTTNOX_EVT_UNSUBSCRIBED:
+			printf("[App] MQTT Unsubscribed to Topic\n");
 			break;
 		case MQTTNOX_EVT_PINGRESP:
+			printf("[App] MQTT Ping Response\n");
 			break;
 		case MQTTNOX_EVT_PUBREL:
 			break;
 		case MQTTNOX_EVT_DISCONNECT:
+			printf("[App] MQTT Disconnected\n");
 			break;
 		case MQTTNOX_EVT_ERROR:
+			printf("[App] MQTT Error\n");
 			break;
 	}
 }

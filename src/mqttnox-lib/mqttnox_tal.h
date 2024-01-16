@@ -51,7 +51,7 @@ typedef void (*mqttnox_tcp_rcv_t)(mqttnox_client_t* c, uint8_t * data, uint16_t 
 extern int mqttnox_tcp_init(mqttnox_client_t* c, mqttnox_tcp_rcv_t rcv_cback);
 extern int mqttnox_tcp_connect(char* addr, int port);
 extern int mqttnox_tcp_send(uint8_t * data, uint16_t len);
-extern int mqttnox_tcp_disconnect(char * addr, int port);
+extern int mqttnox_tcp_disconnect(void);
 extern void mqttnox_wait_thread(void);
 
 #ifdef __cplusplus
