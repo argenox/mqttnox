@@ -78,6 +78,7 @@ void mqttnox_callback(mqttnox_evt_data_t * data)
 int main(void)
 {
 	
+	printf("MQTTNox Version: %s\n", MQTTNOX_VERSION);
 
 	client_conf.server.addr = "test.mosquitto.org";
 	client_conf.server.port = 1883;

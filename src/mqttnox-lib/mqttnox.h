@@ -43,6 +43,7 @@ extern "C" {
 
 #include "mqttnox_err.h"
 #include "mqttnoxlib.h"
+#include "mqttnox_version.h"
 
 typedef enum
 {
