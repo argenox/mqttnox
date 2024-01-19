@@ -61,7 +61,6 @@ static void mqttnox_handler_pubcomp(mqttnox_client_t* c, uint8_t * data, uint16_
 static void mqttnox_handler_suback(mqttnox_client_t* c, uint8_t * data, uint16_t len);
 static void mqttnox_handler_unsuback(mqttnox_client_t* c, uint8_t * data, uint16_t len);
 static void mqttnox_handler_pingresp(mqttnox_client_t* c, uint8_t * data, uint16_t len);
-static void mqttnox_handler_disconnect(mqttnox_client_t* c, uint8_t * data, uint16_t len);
 
 static void mqttnox_send_event(mqttnox_client_t* c, mqttnox_evt_data_t* data);
 
@@ -76,7 +75,6 @@ static void mqttnox_send_event(mqttnox_client_t* c, mqttnox_evt_data_t* data);
 void mqttnox_tcp_rcv_func(mqttnox_client_t* c, uint8_t * data, uint16_t len)
 {
     mqttnox_hdr_t* hdr = NULL;
-    mqttnox_response_var_hdr_t * var_hdr;
     
     do
     {
@@ -85,7 +83,6 @@ void mqttnox_tcp_rcv_func(mqttnox_client_t* c, uint8_t * data, uint16_t len)
         }
 
         hdr = (mqttnox_hdr_t*)data;
-        var_hdr = (mqttnox_response_var_hdr_t*) (data + sizeof(mqttnox_hdr_t) + 2);
 
         switch (hdr->type) {
 
@@ -175,8 +172,6 @@ static void mqttnox_handler_puback(mqttnox_client_t* c, uint8_t * data, uint16_t
 
     mqttnox_response_var_hdr_t* var_hdr = (mqttnox_response_var_hdr_t*)(data + sizeof(mqttnox_hdr_t) + 1);
 
-    mqttnox_suback_return_t * rc = (mqttnox_suback_return_t *)(data + sizeof(mqttnox_hdr_t) + 2);
-
     evt_data->evt_id = MQTTNOX_EVT_PUBLISHED;
     evt_data->evt.published_evt.packet_identified_msb = var_hdr->unsub_ack.msb;
     evt_data->evt.published_evt.packet_identified_lsb = var_hdr->unsub_ack.lsb;
@@ -204,12 +199,8 @@ static void mqttnox_handler_suback(mqttnox_client_t* c, uint8_t * data, uint16_t
     uint8_t data_buffer[64];
     mqttnox_evt_data_t* evt_data = (mqttnox_evt_data_t*)data_buffer;
 
-    mqttnox_response_var_hdr_t* var_hdr = (mqttnox_response_var_hdr_t*)(data + sizeof(mqttnox_hdr_t) + 1);
-
-    mqttnox_suback_return_t * rc = (mqttnox_suback_return_t *)(data + sizeof(mqttnox_hdr_t) + 2);
-
     evt_data->evt_id = MQTTNOX_EVT_SUBSCRIBED;
-    evt_data->evt.subscribed_evt.return_code = *rc;
+    evt_data->evt.subscribed_evt.return_code = *(mqttnox_suback_return_t *)(data + sizeof(mqttnox_hdr_t) + 2);
 
     mqttnox_send_event(c, evt_data);
 }
@@ -644,7 +635,6 @@ mqttnox_rc_t mqttnox_disconnect(mqttnox_client_t * c)
     mqttnox_hdr_t hdr;
     mqttnox_connect_var_hdr_t var_hdr;
     uint16_t pkt_len = 0;
-    size_t i = 0;
     int irc;
 
     do
@@ -672,6 +662,9 @@ mqttnox_rc_t mqttnox_disconnect(mqttnox_client_t * c)
 
         /* Send the connect packet, response is received async */
         irc = mqttnox_tcp_send(mqttnox_tx_buf, pkt_len);
+        if(irc != 0) {
+            break;
+        }
 
         /* Disconnect the TCP */
         mqttnox_tcp_disconnect();
@@ -692,7 +685,7 @@ static int mqttnox_append_utf8_string(uint8_t* buffer, char* str, uint8_t add_le
     size_t buf_offset = 0;
 
     if (buffer != NULL) {
-        buf_offset = strlen(buffer);
+        buf_offset = strlen((const char *)buffer);
     }
 
     if (str != NULL && (strlen(str) > 0) && buffer != NULL) {

@@ -146,7 +146,7 @@ typedef struct
 
     struct  {
         uint8_t connected : 1;
-    }status;
+    } status;
 
     mqttnox_callback_t callback;
     uint16_t packet_ident;
