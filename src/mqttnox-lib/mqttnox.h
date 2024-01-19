@@ -64,7 +64,14 @@ typedef enum {
 
 } mqttnox_evt_id_t;
 
+typedef enum {
 
+    MQTTNOX_SUBACK_RETURN_SUCCESS_QOS0 = 0x00, /* Success - Maximum QoS 0 */
+    MQTTNOX_SUBACK_RETURN_SUCCESS_QOS1 = 0x01, /* Success - Maximum QoS 1 */
+    MQTTNOX_SUBACK_RETURN_SUCCESS_QOS2 = 0x02, /* Success - Maximum QoS 2 */
+    MQTTNOX_SUBACK_RETURN_FAILURE      = 0x80, /* Failure */
+
+} mqttnox_suback_return_t;
 
 typedef struct
 {
@@ -74,20 +81,22 @@ typedef struct
 
 typedef struct
 {
-    uint16_t packet_ident; /** Packet identifier from the published packet */
+    uint8_t packet_identified_msb;
+    uint8_t packet_identified_lsb;
 
 } published_evt_t;
 
 
 typedef struct
 {
-    uint8_t test;
+    mqttnox_suback_return_t return_code;
 
 } subscribed_evt_t;
 
 typedef struct
 {
-    uint8_t test;
+    uint8_t packet_identified_msb;
+    uint8_t packet_identified_lsb;
 
 } unsubscribed_evt_t;
 
@@ -116,13 +125,13 @@ typedef struct
 
     /* Event information */
     union {
-        connect_evt_t connect_evt;
-        published_evt_t published_evt;
-        subscribed_evt_t subscribed_evt;
+        connect_evt_t      connect_evt;
+        published_evt_t    published_evt;
+        subscribed_evt_t   subscribed_evt;
         unsubscribed_evt_t unsubscribed_evt;
-        pingresp_evt_t pingresp_evt;
-        pubrel_evt_t pubrel_evt;
-        disconnect_evt_t disconnect_evt;
+        pingresp_evt_t     pingresp_evt;
+        pubrel_evt_t       pubrel_evt;
+        disconnect_evt_t   disconnect_evt;
     }evt;
 
 } mqttnox_evt_data_t;
@@ -135,9 +144,9 @@ typedef struct
 {
     uint32_t flag_initialized; /** Inidiates the client object is successfully initialized */
 
-    struct status {
+    struct  {
         uint8_t connected : 1;
-    };
+    }status;
 
     mqttnox_callback_t callback;
     uint16_t packet_ident;
@@ -189,7 +198,12 @@ typedef struct
 
 extern mqttnox_rc_t mqttnox_init(mqttnox_client_t * c);
 extern mqttnox_rc_t mqttnox_connect(mqttnox_client_t* c, mqttnox_client_conf_t* conf);
-extern mqttnox_rc_t mqttnox_publish(mqttnox_client_t * c);
+extern mqttnox_rc_t mqttnox_publish(mqttnox_client_t* c,
+                                    mqttnox_qos_t qos,
+                                    uint8_t retain,
+                                    uint8_t dup,
+                                    char* topic,
+                                    char* msg);
 extern mqttnox_rc_t mqttnox_subscribe(mqttnox_client_t* c,
                                 mqttnox_topic_sub_t* topics,
                                 uint8_t topic_cnt);
@@ -198,7 +212,7 @@ extern mqttnox_rc_t mqttnox_unsubscribe(mqttnox_client_t* c,
     uint8_t topic_cnt);
 
 extern mqttnox_rc_t mqttnox_disconnect(mqttnox_client_t * c);
-
+extern uint8_t mqttnox_is_connected(mqttnox_client_t* c);
 
 #ifdef __cplusplus
 }

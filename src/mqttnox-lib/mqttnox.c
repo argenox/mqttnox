@@ -3,7 +3,6 @@
 * All rights reserved.
 *
 *
-*
 * NOTICE:  All information contained herein, source code, binaries and
 * derived works is, and remains the property of Argenox and its suppliers,
 * if any.  The intellectual and technical concepts contained
@@ -90,7 +89,8 @@ void mqttnox_tcp_rcv_func(mqttnox_client_t* c, uint8_t * data, uint16_t len)
 
         switch (hdr->type) {
 
-            case MQTTNOX_CTRL_PKT_TYPE_CONNACK:                
+            case MQTTNOX_CTRL_PKT_TYPE_CONNACK:
+                c->status.connected = 1;
                 mqttnox_handler_connack(c, data, len);
                 break;
             case MQTTNOX_CTRL_PKT_TYPE_PUBACK:                
@@ -119,10 +119,6 @@ void mqttnox_tcp_rcv_func(mqttnox_client_t* c, uint8_t * data, uint16_t len)
             case MQTTNOX_CTRL_PKT_TYPE_PINGRESP:
                 printf("MQTTNOX_CTRL_PKT_TYPE_PINGRESP\n");
                 mqttnox_handler_pingresp(c, data, len);
-                break;
-            case MQTTNOX_CTRL_PKT_TYPE_DISCONNECT:
-                printf("MQTTNOX_CTRL_PKT_TYPE_DISCONNECT\n");
-                mqttnox_handler_disconnect(c, data, len);
                 break;
         }
     } while (0);
@@ -174,43 +170,72 @@ static void mqttnox_handler_puback(mqttnox_client_t* c, uint8_t * data, uint16_t
 {
     printf("MQTTNOX_CTRL_PKT_TYPE_PUBACK\n");
 
+    uint8_t data_buffer[64];
+    mqttnox_evt_data_t* evt_data = (mqttnox_evt_data_t*)data_buffer;
+
+    mqttnox_response_var_hdr_t* var_hdr = (mqttnox_response_var_hdr_t*)(data + sizeof(mqttnox_hdr_t) + 1);
+
+    mqttnox_suback_return_t * rc = (mqttnox_suback_return_t *)(data + sizeof(mqttnox_hdr_t) + 2);
+
+    evt_data->evt_id = MQTTNOX_EVT_PUBLISHED;
+    evt_data->evt.published_evt.packet_identified_msb = var_hdr->unsub_ack.msb;
+    evt_data->evt.published_evt.packet_identified_lsb = var_hdr->unsub_ack.lsb;
+
+    mqttnox_send_event(c, evt_data);
 }
 
 static void mqttnox_handler_pubrec(mqttnox_client_t* c, uint8_t * data, uint16_t len)
 {
-
+    /* Not implemented yet */
 }
 
 static void mqttnox_handler_pubrel(mqttnox_client_t* c, uint8_t * data, uint16_t len)
 {
-
+    /* Not implemented yet */
 }
 
 static void mqttnox_handler_pubcomp(mqttnox_client_t* c, uint8_t * data, uint16_t len)
 {
-
+    /* Not implemented yet */
 }
 
 static void mqttnox_handler_suback(mqttnox_client_t* c, uint8_t * data, uint16_t len)
 {
+    uint8_t data_buffer[64];
+    mqttnox_evt_data_t* evt_data = (mqttnox_evt_data_t*)data_buffer;
 
+    mqttnox_response_var_hdr_t* var_hdr = (mqttnox_response_var_hdr_t*)(data + sizeof(mqttnox_hdr_t) + 1);
+
+    mqttnox_suback_return_t * rc = (mqttnox_suback_return_t *)(data + sizeof(mqttnox_hdr_t) + 2);
+
+    evt_data->evt_id = MQTTNOX_EVT_SUBSCRIBED;
+    evt_data->evt.subscribed_evt.return_code = *rc;
+
+    mqttnox_send_event(c, evt_data);
 }
 
 static void mqttnox_handler_unsuback(mqttnox_client_t* c, uint8_t * data, uint16_t len)
 {
+    uint8_t data_buffer[64];
+    mqttnox_evt_data_t* evt_data = (mqttnox_evt_data_t*)data_buffer;
 
+    mqttnox_response_var_hdr_t* var_hdr = (mqttnox_response_var_hdr_t*)(data + sizeof(mqttnox_hdr_t) + 1);
+
+    evt_data->evt_id = MQTTNOX_EVT_UNSUBSCRIBED;
+    evt_data->evt.unsubscribed_evt.packet_identified_msb = var_hdr->unsub_ack.msb;
+    evt_data->evt.unsubscribed_evt.packet_identified_lsb = var_hdr->unsub_ack.lsb;
+
+    mqttnox_send_event(c, evt_data);
 }
 
 static void mqttnox_handler_pingresp(mqttnox_client_t* c, uint8_t * data, uint16_t len)
 {
+    uint8_t data_buffer[64];
+    mqttnox_evt_data_t* evt_data = (mqttnox_evt_data_t*)data_buffer;
+    evt_data->evt_id = MQTTNOX_EVT_PINGRESP;
 
+    mqttnox_send_event(c, evt_data);
 }
-
-static void mqttnox_handler_disconnect(mqttnox_client_t* c, uint8_t * data, uint16_t len)
-{
-
-}
-
 
 
 static void mqttnox_send_event(mqttnox_client_t* c, mqttnox_evt_data_t * data)
@@ -330,6 +355,7 @@ mqttnox_rc_t mqttnox_connect(mqttnox_client_t * c, mqttnox_client_conf_t * conf)
 
         if (rc_i != 0) {
             printf("Connect failed");
+            break;
         }
 
         MEMZERO(mqttnox_tx_buf);
@@ -605,9 +631,9 @@ mqttnox_rc_t mqttnox_unsubscribe(mqttnox_client_t* c,
     return rc;
 }
 
-/**@brief Macro used to concatenate string using delayed macro expansion
+/**@brief MQTT Disconnect
 *
-* @note This macro will delay concatenation until the expressions have been resolved
+* @note This function initiates a clean disconnection from the MQTT
 *
 * @param[in]   lhs   Left hand side in concatenation
 * @param[in]   rhs   Right hand side in concatenation
@@ -615,17 +641,45 @@ mqttnox_rc_t mqttnox_unsubscribe(mqttnox_client_t* c,
 mqttnox_rc_t mqttnox_disconnect(mqttnox_client_t * c)
 {
     mqttnox_rc_t rc = MQTTNOX_RC_ERROR;
+    mqttnox_hdr_t hdr;
+    mqttnox_connect_var_hdr_t var_hdr;
+    uint16_t pkt_len = 0;
+    size_t i = 0;
+    int irc;
+
     do
     {
-        if(c->flag_initialized != MQTTNOX_INIT_FLAG) {
+        if (c->flag_initialized != MQTTNOX_INIT_FLAG) {
             rc = MQTTNOX_RC_ERROR_NOT_INIT;
             break;
         }
 
+        MEMZERO_S(hdr);
+        MEMZERO_S(var_hdr);
+
+        /* Initialize fixed header */
+        hdr.type = MQTTNOX_CTRL_PKT_TYPE_DISCONNECT;
+
+
+        MEMZERO(mqttnox_tx_buf);
+
+        /* Copy Fixed Header */
+        memcpy(mqttnox_tx_buf, (void*)&hdr, sizeof(hdr));        
+        pkt_len += sizeof(hdr);
+
+        /* Zero remaining length */
+        mqttnox_tx_buf[pkt_len++] = 0;
+
+        /* Send the connect packet, response is received async */
+        irc = mqttnox_tcp_send(mqttnox_tx_buf, pkt_len);
+
+        /* Disconnect the TCP */
         mqttnox_tcp_disconnect();
 
+        c->status.connected = 0;
+
         rc = MQTTNOX_SUCCESS;
-    } while(0);
+    } while (0);
 
     return rc;
 }
@@ -656,6 +710,17 @@ static int mqttnox_append_utf8_string(uint8_t* buffer, char* str, uint8_t add_le
     }
 
     return -1;
+}
+
+uint8_t mqttnox_is_connected(mqttnox_client_t* c)
+{
+    if (c->status.connected) {
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 #ifdef __cplusplus

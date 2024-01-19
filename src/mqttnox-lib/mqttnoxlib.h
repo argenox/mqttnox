@@ -129,10 +129,33 @@ typedef struct {
 #pragma pack(pop)
 
 
+#pragma pack(push, 1)
+typedef struct {
+
+    uint8_t msb;
+    uint8_t lsb;    
+
+} mqttnox_suback_var_hdr_t;
+
+#pragma pack(pop)
+
+
+#pragma pack(push, 1)
+typedef struct {
+
+    uint8_t msb;
+    uint8_t lsb;    
+
+} mqttnox_unsuback_var_hdr_t;
+
+#pragma pack(pop)
+
 
 typedef union
 {
-    mqttnox_connack_var_hdr_t conn_ack;
+    mqttnox_connack_var_hdr_t  conn_ack;
+    mqttnox_suback_var_hdr_t   sub_ack;
+    mqttnox_unsuback_var_hdr_t unsub_ack;
 
 
 } mqttnox_response_var_hdr_t;
