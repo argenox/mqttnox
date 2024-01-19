@@ -3,7 +3,6 @@
 * All rights reserved.
 *
 *
-*
 * NOTICE:  All information contained herein, source code, binaries and
 * derived works is, and remains the property of Argenox and its suppliers,
 * if any.  The intellectual and technical concepts contained
@@ -26,10 +25,9 @@
 *
 * CONTACT: info@argenox.com
 *
-* File:    mqttnoxlib.h
-* Summary: MQTT Nox Internal Library definitions
+* File:    mqttnox_version.h
+* Summary: MQTT Nox Version
 *
-* Note: Do not call the functions in this file directly. Use mqttnox.h
 *
 */
 
