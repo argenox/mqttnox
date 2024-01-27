@@ -67,6 +67,17 @@ typedef enum
 } mqttnox_connect_rc_t;
 
 
+typedef enum
+{
+    MQTTNOX_DEBUG_NONE    = 0,
+    MQTTNOX_DEBUG_ERROR   = 1,
+    MQTTNOX_DEBUG_WARNING = 2,
+    MQTTNOX_DEBUG_INFO    = 3,
+    MQTTNOX_DEBUG_DEBUG   = 4,
+    MQTTNOX_DEBUG_ALL     = 5,
+
+} mqttnox_debug_lvl_t;
+
 
 #pragma pack(push, 1)
 typedef struct {
@@ -200,7 +211,7 @@ typedef struct
 
 
 
-extern int mqttnoxlib_validate_device_id(char* str);
+extern int mqttnoxlib_validate_device_id(const char* str);
 
 
 #ifdef __cplusplus

@@ -38,12 +38,15 @@ extern "C" {
 /* System Includes */
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdarg.h>
 
 /* Library Includes */
 #include "mqttnox.h"
 #include "mqttnoxlib.h"
 #include "mqttnox_err.h"
 #include "common.h"
+#include "mqttnox_tal.h"
 #include "mqttnox_debug.h"
 
 
@@ -80,6 +83,38 @@ char * get_mqtt_packet_type_str(int32_t code)
     }
 
     return "";
+}
+
+void print_buffer(uint8_t* data, uint16_t len)
+{    
+    size_t i;
+    printf("-----Data[%d]: ", len);
+    for (i = 0; i < len; i++)
+    {
+        printf("%02X ", data[i]);
+    }
+    printf("\n");
+}
+
+/**@brief MQTTNox Debug printf
+*
+*
+* @param[in]   lvl    error level for the print
+* @param[in]   format c string containing format specifier 
+* @param[in]   ...    additional arguments
+*
+*/
+void mqttnox_debug_printf(mqttnox_debug_lvl_t lvl, const char * format, ...)
+{
+    char buffer[256];
+
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buffer, sizeof(buffer), format, args);    
+    va_end(args);
+
+    /* Send to system print */
+    printf("%s", buffer);
 }
 
 #ifdef __cplusplus

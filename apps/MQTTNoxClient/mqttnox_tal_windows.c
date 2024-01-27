@@ -72,6 +72,7 @@ extern "C" {
 #pragma comment(lib, "ws2_32.lib")
 
 #include "mqttnox.h"
+#include "mqttnox_debug.h"
 #include "mqttnox_tal.h"
 
 HANDLE  queueMutex;
@@ -82,7 +83,7 @@ int port_outgoing = 0;
 struct hostent* host;
 
 uintptr_t receive_thread;
-HANDLE connection_thread_obj;
+HANDLE mqttnox_tcp_receive_thread_obj;
 
 uint8_t server_ready = 0;
 int port_incoming = 0;
@@ -114,10 +115,11 @@ typedef struct
 
 } connection_t;
 
-int connection_thread(void* ptr);
 
 int mqttnox_tcp_init(mqttnox_client_t* c, mqttnox_tcp_rcv_t rcv_cback)
 {
+
+
     if(rcv_cback != NULL) {
         mqttnox_tcp_rcv_cback = rcv_cback;
     }
@@ -135,13 +137,6 @@ int mqttnox_tcp_connect(char * addr, int port)
 
     port_outgoing = port;
 
-    // host = gethostbyname("127.0.0.1");
-    // if (!host)
-    // {
-    //     fprintf(stderr, "error: unknown host\n");
-    //     return -1;
-    // }
-
     printf("Starting Outgoing Client at port_outgoing %d\n", port);
 
     data_callback = mqttnox_tcp_rcv_cback;
@@ -153,20 +148,6 @@ int mqttnox_tcp_connect(char * addr, int port)
         NULL,              // default security attributes
         FALSE,             // initially not owned
         NULL);             // unnamed mutex
-
-//    receive_thread = _beginthread((HANDLE)&server_incoming_thread_handler, 0, NULL);
-
-
-    // printf("Starting Receiver port %d\n", port);
-
-
-    // /* Create server_thread */
-    // ret_val_t1 = pthread_create(&client_thread, NULL, client_outgoing_thread_handler, NULL);
-    // if (ret_val_t1)
-    // {
-    //     fprintf(stderr, "Error - pthread_create() return value: %d\n", ret_val_t1);
-    //     exit(EXIT_FAILURE);
-    // }
 
     int iResult;
     struct sockaddr_in server;
@@ -215,10 +196,8 @@ int mqttnox_tcp_connect(char * addr, int port)
         return -1;
     }
 
-
     ptr = &((struct sockaddr_in*)result->ai_addr)->sin_addr;
     inet_ntop(result->ai_family, ptr, addrstr, sizeof(addrstr));
-
 
     /* Deallocate */
     freeaddrinfo(result);
@@ -242,7 +221,7 @@ int mqttnox_tcp_connect(char * addr, int port)
     }
 
     /* Create listening thread */
-    connection_thread_obj = (HANDLE)_beginthread(&connection_thread, 0, (void*)connection);
+    mqttnox_tcp_receive_thread_obj = (HANDLE)_beginthread(&mqttnox_tcp_receive_thread, 0, (void*)connection);
 
     return 0;
 }
@@ -279,69 +258,26 @@ int mqttnox_tcp_disconnect(void)
 
 uint8_t main_buffer[1024];
 
-int connection_thread(void * ptr)
-{
-    //char * buffer;
-    DWORD dwCount = 0, dwWaitResult;
-    int iResult;
+
+
+int mqttnox_tcp_receive_thread(void * ptr)
+{    
     int len = 0;
-    connection_t * conn;
-    //long addr = 0;
+    connection_t * conn;    
     int run = 1;
+    int i = 0;
 
     if (!ptr) run = 0;
 
-    printf("Here");
     conn = (connection_t *)ptr;
-
-    printf("Running");
 
     while(run)
     {
+        len = recv(ClientSocket, main_buffer, sizeof(main_buffer), 0);
 
-        /* read length of message */
-        //read(conn->sock, &len, sizeof(char));
-        //read(conn->sock, main_buffer, sizeof(main_buffer));
-
-
-        iResult = recv(ClientSocket, main_buffer, sizeof(main_buffer), 0);
-#if 0
-        if (iResult > 0)
-            printf("Bytes received: %d\n", iResult);
-        else
-            printf("Nothing received\n");
-#endif
-        len = iResult;
-
-//        len = recvfrom(conn->sock, main_buffer, sizeof(main_buffer), 0, NULL, NULL);
         if (len > 0)
         {
-            //memset(main_buffer, 0, sizeof(main_buffer));
-            //addr = (long)((struct sockaddr_in *)&conn->address)->sin_addr.s_addr;
-            //buffer = (char *)malloc((len+1)*sizeof(char));
-            //buffer[len] = 0;
-
-            /* Received data */
-            //read(conn->sock, main_buffer, len);
-
-            /* Lock the queue mutex to make sure that adding data to the queue happens correctly */
-
-            dwWaitResult = WaitForSingleObject(
-                queueMutex,    // handle to mutex
-                INFINITE);  // no time-out interval
-
-            int i = 0;
-            printf("Here Received %d\n", len);
-
-            printf("-----Data[%d]: ", len);
-
-            for(i = 0; i < len; i++)
-            {
-                printf("%02X ", main_buffer[i]);
-            }
-
-            printf("\n");
-
+            print_buffer(main_buffer, len);
 
             memcpy(received_data, main_buffer, len);
             received_length = len;
@@ -350,79 +286,7 @@ int connection_thread(void * ptr)
                 data_callback(client, received_data, received_length);
             }
 
-            ReleaseMutex(queueMutex);
-
-            /* Wait for response from stack */
-
-
-            printf("%d Going to lock\n", __LINE__);
-
-            /* Start by locking the queue mutex */
-#if 0
-            dwWaitResult = WaitForSingleObject(
-                queueMutex,    // handle to mutex
-                INFINITE);  // no time-out interval
-#endif
-
-            printf("%d Server ready\n", __LINE__);
-
-            server_ready = 1;
-
-            //As long as the queue is empty,
-            //while(send_length == 0) {
-                // - wait for the condition variable to be signalled
-                //Note: This call unlocks the mutex when called and
-                //relocks it before returning!
-                //pthread_cond_wait(&queueCond, &queueMutex);
-
-                dwWaitResult = WaitForSingleObject(
-                    queueCond, // event handle
-                    INFINITE);    // indefinite wait
-
-
-
-            //}
-
-
-                //printf("%d Here about to send %d bytes\n", __LINE__, send_length);
-
-#if DEBUG_ENABLED
-            printf("Received some data to send of length %d   ", send_length);
-
-            for(i = 0; i < send_length; i++)
-            {
-                printf("%x ", send_data[i]);
-            }
-
-            printf("\n");
-#endif
-            /* Send data */
-             //write(sock, &send_length, sizeof(send_length));
-
-
-
-            //Now unlock the mutex
-            //pthread_mutex_unlock(&queueMutex);
-            ReleaseMutex(queueMutex);
-
-            /* Signal the condition variable that new data is available in the queue */
-            //pthread_cond_signal(&queueCond);
-
-            SetEvent(queueCond);
-
-
-            /* Done, unlock the mutex */
-            //pthread_mutex_unlock(&queueMutex);
-            #if 0
-            dwWaitResult = WaitForSingleObject(
-                queueMutex,    // handle to mutex
-                INFINITE);  // no time-out interval
-#endif
-            ReleaseMutex(queueMutex);
-
-
-            len = 0;
-            //free(buffer);
+            len = 0;            
         }
         else if (len == 0)
         {
@@ -430,23 +294,21 @@ int connection_thread(void * ptr)
             closesocket(ClientSocket);
             run = 0;
         }
-
     }
-    /* close socket and clean up */
-    //close(conn->sock);
-
-    //free(conn);
-    //pthread_exit(0);
 
     return 0;
 }
 
 void mqttnox_wait_thread(void)
 {
-    WaitForSingleObject(connection_thread_obj, INFINITE);
+    WaitForSingleObject(mqttnox_tcp_receive_thread_obj, INFINITE);
 }
 
 
+void mqttnox_hal_debug_printf(const char* str)
+{
+    printf("%s", str);    
+}
 
 #ifdef __cplusplus
 }

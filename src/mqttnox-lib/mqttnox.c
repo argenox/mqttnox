@@ -46,13 +46,16 @@ extern "C" {
 #include "common.h"
 #include "mqttnox_tal.h"
 #include "mqttnox_config.h"
+#include "mqttnox_debug.h"
 
 
 static uint8_t mqttnox_tx_buf[MQTTNOX_TX_BUF_SIZE];
 
-static int mqttnox_append_utf8_string(uint8_t* buffer, char* str, uint8_t add_len);
+/* Intrnal Helper Functions */
+static int mqttnox_append_utf8_string(uint8_t* buffer, const char* str, uint8_t add_len);
+static void mqttnox_send_event(mqttnox_client_t* c, mqttnox_evt_data_t* data);
 
-
+/* MQTT Response Handlers */
 static void mqttnox_handler_connack(mqttnox_client_t* c, uint8_t * data, uint16_t len);
 static void mqttnox_handler_puback(mqttnox_client_t* c, uint8_t * data, uint16_t len);
 static void mqttnox_handler_pubrec(mqttnox_client_t* c, uint8_t * data, uint16_t len);
@@ -62,7 +65,6 @@ static void mqttnox_handler_suback(mqttnox_client_t* c, uint8_t * data, uint16_t
 static void mqttnox_handler_unsuback(mqttnox_client_t* c, uint8_t * data, uint16_t len);
 static void mqttnox_handler_pingresp(mqttnox_client_t* c, uint8_t * data, uint16_t len);
 
-static void mqttnox_send_event(mqttnox_client_t* c, mqttnox_evt_data_t* data);
 
 /**@brief TCP callback for data reception
 *
@@ -75,10 +77,18 @@ static void mqttnox_send_event(mqttnox_client_t* c, mqttnox_evt_data_t* data);
 void mqttnox_tcp_rcv_func(mqttnox_client_t* c, uint8_t * data, uint16_t len)
 {
     mqttnox_hdr_t* hdr = NULL;
+
+    mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "TCP Receive Function");
     
     do
     {
-        if (data == NULL) {
+        if (c == NULL) {
+            mqttnox_debug_printf(MQTTNOX_DEBUG_ERROR, "Client NULL %s Line %d", __FILE__, __LINE__);
+            break;
+        }
+
+        if (data == NULL || len == 0) {
+            mqttnox_debug_printf(MQTTNOX_DEBUG_ERROR, "Data NULL or zero length %s Line %d", __FILE__, __LINE__);
             break;
         }
 
@@ -94,78 +104,114 @@ void mqttnox_tcp_rcv_func(mqttnox_client_t* c, uint8_t * data, uint16_t len)
                 mqttnox_handler_puback(c, data, len);
                 break;
             case MQTTNOX_CTRL_PKT_TYPE_PUBREC:
-                printf("MQTTNOX_CTRL_PKT_TYPE_PUBREC\n");
+                mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "MQTTNOX_CTRL_PKT_TYPE_PUBREC\n");
                 mqttnox_handler_pubrec(c, data, len);
                 break;
             case MQTTNOX_CTRL_PKT_TYPE_PUBREL:
-                printf("MQTTNOX_CTRL_PKT_TYPE_PUBREL\n");
+                mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "MQTTNOX_CTRL_PKT_TYPE_PUBREL\n");
                 mqttnox_handler_pubrel(c, data, len);
                 break;
             case MQTTNOX_CTRL_PKT_TYPE_PUBCOMP:
-                printf("MQTTNOX_CTRL_PKT_TYPE_PUBCOMP\n");
+                mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "MQTTNOX_CTRL_PKT_TYPE_PUBCOMP\n");
                 mqttnox_handler_pubcomp(c, data, len);
                 break;
             case MQTTNOX_CTRL_PKT_TYPE_SUBACK:
-                printf("MQTTNOX_CTRL_PKT_TYPE_SUBACK\n");
+                mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "MQTTNOX_CTRL_PKT_TYPE_SUBACK\n");
                 mqttnox_handler_suback(c, data, len);
                 break;
             case MQTTNOX_CTRL_PKT_TYPE_UNSUBACK:
-                printf("MQTTNOX_CTRL_PKT_TYPE_UNSUBACK\n");
+                mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "MQTTNOX_CTRL_PKT_TYPE_UNSUBACK\n");
                 mqttnox_handler_unsuback(c, data, len);
                 break;
             case MQTTNOX_CTRL_PKT_TYPE_PINGRESP:
-                printf("MQTTNOX_CTRL_PKT_TYPE_PINGRESP\n");
+                mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "MQTTNOX_CTRL_PKT_TYPE_PINGRESP\n");
                 mqttnox_handler_pingresp(c, data, len);
                 break;
         }
     } while (0);
 }
 
+/**@brief MQTT ConnACK Handler
+*
+* @note Connection Acknowledgement Handler
+*
+* @param[in]   c    mqttnox object \see mqttnox_client_t
+* @param[in]   data pointer to buffer with the incoming data from the server
+* @param[in]   len  length of the data from the server
+*
+* @return     None
+*/
 static void mqttnox_handler_connack(mqttnox_client_t* c, uint8_t * data, uint16_t len)
 {    
     uint8_t data_buffer[64];
     mqttnox_evt_data_t* evt_data = (mqttnox_evt_data_t*)data_buffer;
     mqttnox_response_var_hdr_t* var_hdr = (mqttnox_response_var_hdr_t*)(data + sizeof(mqttnox_hdr_t) + 2);
 
-    printf("MQTTNOX_CTRL_PKT_TYPE_CONNACK\n");
-    printf("Return Code %x\n", var_hdr->conn_ack.conn_return_code);
-    printf("Session Present %u\n", var_hdr->conn_ack.flag_session_present);
+    mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "MQTTNOX_CTRL_PKT_TYPE_CONNACK\n");
+    mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "Return Code %x\n", var_hdr->conn_ack.conn_return_code);
+    mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "Session Present %u\n", var_hdr->conn_ack.flag_session_present);
 
     switch (var_hdr->conn_ack.conn_return_code)
     {
-    case MQTTNOX_CONNECTION_RC_ACCEPTED:
-        printf("Successful\n");
+        case MQTTNOX_CONNECTION_RC_ACCEPTED:
+            mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "Successful\n");
         
-        evt_data->evt_id = MQTTNOX_EVT_CONNECT;
-        evt_data->evt.connect_evt.session_present = var_hdr->conn_ack.flag_session_present;
+            evt_data->evt_id = MQTTNOX_EVT_CONNECT;
+            evt_data->evt.connect_evt.session_present = var_hdr->conn_ack.flag_session_present;
+            mqttnox_send_event(c, evt_data);
 
-        mqttnox_send_event(c, evt_data);
+            break;
+        case MQTTNOX_CONNECTION_RC_REFUSED_UNACCP_PROT_VER:
+            evt_data->evt_id = MQTTNOX_EVT_CONNECT_ERROR;
+            evt_data->evt.conn_err_evt.reason = MQTTNOX_CONN_ERR_REFUSED_UNACCP_PROT_VER;
+            mqttnox_send_event(c, evt_data);
 
-        break;
-    case MQTTNOX_CONNECTION_RC_REFUSED_UNACCP_PROT_VER:
-        printf("Connection Refused, unacceptable protocol version\n");
-        break;
-    case MQTTNOX_CONNECTION_RC_REFUSED_IDENT_REJECTED:
-        printf("Connection Refused, identifier rejected\n");
-        break;
-    case MQTTNOX_CONNECTION_RC_REFUSED_SERVER_UNAVAIL:
-        printf("Connection Refused, Server Unavailable\n");
-        break;
-    case MQTTNOX_CONNECTION_RC_REFUSED_BAD_USER_PASS:
-        printf("Connection Refused, Bad Username or Password\n");
-        break;
-    case MQTTNOX_CONNECTION_RC_REFUSED_NOT_AUTH:
-        printf("Connection Refused, Not authorized\n");
-        break;
-    default:
-        printf("Unknown error - invalid\n");
+            mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "Connection Refused, unacceptable protocol version\n");
+            break;
+        case MQTTNOX_CONNECTION_RC_REFUSED_IDENT_REJECTED:
+            evt_data->evt_id = MQTTNOX_EVT_CONNECT_ERROR;
+            evt_data->evt.conn_err_evt.reason = MQTTNOX_CONN_ERR_REFUSED_IDENT_REJECTED;
+            mqttnox_send_event(c, evt_data);
+
+            mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "Connection Refused, identifier rejected\n");
+            break;
+        case MQTTNOX_CONNECTION_RC_REFUSED_SERVER_UNAVAIL:
+            evt_data->evt_id = MQTTNOX_EVT_CONNECT_ERROR;
+            evt_data->evt.conn_err_evt.reason = MQTTNOX_CONN_ERR_REFUSED_SERVER_UNAVAIL;
+            mqttnox_send_event(c, evt_data);
+
+            mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "Connection Refused, Server Unavailable\n");
+            break;
+        case MQTTNOX_CONNECTION_RC_REFUSED_BAD_USER_PASS:
+            evt_data->evt_id = MQTTNOX_EVT_CONNECT_ERROR;
+            evt_data->evt.conn_err_evt.reason = MQTTNOX_CONN_ERR_REFUSED_BAD_USER_PASS;
+            mqttnox_send_event(c, evt_data);
+            mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "Connection Refused, Bad Username or Password\n");
+            break;
+        case MQTTNOX_CONNECTION_RC_REFUSED_NOT_AUTH:
+            evt_data->evt_id = MQTTNOX_EVT_CONNECT_ERROR;
+            evt_data->evt.conn_err_evt.reason = MQTTNOX_CONN_ERR_REFUSED_NOT_AUTH;
+            mqttnox_send_event(c, evt_data);
+            mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "Connection Refused, Not authorized\n");
+            break;
+        default:
+            mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "Unknown error - invalid\n");
     }
 }
 
-
+/**@brief MQTT Pub Ack Handler
+*
+* @note Publish Ack Handler
+*
+* @param[in]   c    mqttnox object \see mqttnox_client_t
+* @param[in]   data pointer to buffer with the incoming data from the server
+* @param[in]   len  length of the data from the server
+*
+* @return     None
+*/
 static void mqttnox_handler_puback(mqttnox_client_t* c, uint8_t * data, uint16_t len)
 {
-    printf("MQTTNOX_CTRL_PKT_TYPE_PUBACK\n");
+    mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "MQTTNOX_CTRL_PKT_TYPE_PUBACK\n");
 
     uint8_t data_buffer[64];
     mqttnox_evt_data_t* evt_data = (mqttnox_evt_data_t*)data_buffer;
@@ -179,21 +225,61 @@ static void mqttnox_handler_puback(mqttnox_client_t* c, uint8_t * data, uint16_t
     mqttnox_send_event(c, evt_data);
 }
 
+/**@brief MQTT Pub Rec Handler
+*
+* @note Publish Rec Handler
+*
+* @param[in]   c    mqttnox object \see mqttnox_client_t
+* @param[in]   data pointer to buffer with the incoming data from the server
+* @param[in]   len  length of the data from the server
+*
+* @return     None
+*/
 static void mqttnox_handler_pubrec(mqttnox_client_t* c, uint8_t * data, uint16_t len)
 {
     /* Not implemented yet */
 }
 
+/**@brief MQTT Pub Rel Handler
+*
+* @note Publish Rec Handler
+*
+* @param[in]   c    mqttnox object \see mqttnox_client_t
+* @param[in]   data pointer to buffer with the incoming data from the server
+* @param[in]   len  length of the data from the server
+*
+* @return     None
+*/
 static void mqttnox_handler_pubrel(mqttnox_client_t* c, uint8_t * data, uint16_t len)
 {
     /* Not implemented yet */
 }
 
+/**@brief MQTT Pub Comp Handler
+*
+* @note Publish Rec Handler
+*
+* @param[in]   c    mqttnox object \see mqttnox_client_t
+* @param[in]   data pointer to buffer with the incoming data from the server
+* @param[in]   len  length of the data from the server
+*
+* @return     None
+*/
 static void mqttnox_handler_pubcomp(mqttnox_client_t* c, uint8_t * data, uint16_t len)
 {
     /* Not implemented yet */
 }
 
+/**@brief MQTT Sub ACK Handler
+*
+* @note Publish Subscription ACK Handler
+*
+* @param[in]   c    mqttnox object \see mqttnox_client_t
+* @param[in]   data pointer to buffer with the incoming data from the server
+* @param[in]   len  length of the data from the server
+*
+* @return     None
+*/
 static void mqttnox_handler_suback(mqttnox_client_t* c, uint8_t * data, uint16_t len)
 {
     uint8_t data_buffer[64];
@@ -205,6 +291,16 @@ static void mqttnox_handler_suback(mqttnox_client_t* c, uint8_t * data, uint16_t
     mqttnox_send_event(c, evt_data);
 }
 
+/**@brief MQTT Unsub ACK Handler
+*
+* @note Unsubscribe ACK Handler
+*
+* @param[in]   c    mqttnox object \see mqttnox_client_t
+* @param[in]   data pointer to buffer with the incoming data from the server
+* @param[in]   len  length of the data from the server
+*
+* @return     None
+*/
 static void mqttnox_handler_unsuback(mqttnox_client_t* c, uint8_t * data, uint16_t len)
 {
     uint8_t data_buffer[64];
@@ -219,6 +315,16 @@ static void mqttnox_handler_unsuback(mqttnox_client_t* c, uint8_t * data, uint16
     mqttnox_send_event(c, evt_data);
 }
 
+/**@brief MQTT Ping Response Handler
+*
+* @note Publish Rec Handler
+*
+* @param[in]   c    mqttnox object \see mqttnox_client_t
+* @param[in]   data pointer to buffer with the incoming data from the server
+* @param[in]   len  length of the data from the server
+*
+* @return     None
+*/
 static void mqttnox_handler_pingresp(mqttnox_client_t* c, uint8_t * data, uint16_t len)
 {
     uint8_t data_buffer[64];
@@ -228,7 +334,16 @@ static void mqttnox_handler_pingresp(mqttnox_client_t* c, uint8_t * data, uint16
     mqttnox_send_event(c, evt_data);
 }
 
-
+/**@brief Send Event to callback
+*
+* @note Internal function
+*
+* @param[in]   c    mqttnox object \see mqttnox_client_t
+* @param[in]   data pointer to buffer with the incoming data from the server
+* @param[in]   len  length of the data from the server
+*
+* @return     None
+*/
 static void mqttnox_send_event(mqttnox_client_t* c, mqttnox_evt_data_t * data)
 {
     /* Ensure callback is valid */
@@ -345,7 +460,7 @@ mqttnox_rc_t mqttnox_connect(mqttnox_client_t * c, mqttnox_client_conf_t * conf)
         rc_i = mqttnox_tcp_connect(conf->server.addr, conf->server.port);
 
         if (rc_i != 0) {
-            printf("Connect failed");
+            mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "Connect failed");
             break;
         }
 
@@ -677,8 +792,17 @@ mqttnox_rc_t mqttnox_disconnect(mqttnox_client_t * c)
     return rc;
 }
 
-
-static int mqttnox_append_utf8_string(uint8_t* buffer, char* str, uint8_t add_len)
+/**@brief Appends UTF8 strings to buffer
+*
+* @note Internal function
+*
+* @param[in]   buffer    the buffer to which append the string
+* @param[in]   str    the string to append
+* @param[in]   add_len  indicates whether length should be prepended to string
+*
+* @return      length of string appended, or -1 if failed
+*/
+static int mqttnox_append_utf8_string(uint8_t* buffer, const char* str, uint8_t add_len)
 {
     uint16_t len = 0;
     size_t str_len = 0;
@@ -705,6 +829,16 @@ static int mqttnox_append_utf8_string(uint8_t* buffer, char* str, uint8_t add_le
     return -1;
 }
 
+/**@brief MQTT check if connected
+*
+* @note Checks whether the MQTT is currently connected
+*
+* @param[in]   c    mqttnox object \see mqttnox_client_t
+* @param[in]   data pointer to buffer with the incoming data from the server
+* @param[in]   len  length of the data from the server
+*
+* @return     None
+*/
 uint8_t mqttnox_is_connected(mqttnox_client_t* c)
 {
     if (c->status.connected) {

@@ -35,7 +35,16 @@
 
 #include "mqttnoxlib.h"
 
-int mqttnoxlib_validate_device_id(char * str)
+/**@brief Validates Device ID
+*
+* @note MQTT has specific requirements for the Device ID and this function
+*       performs 
+*
+* @param[in]   str   Null terminated Device ID string 
+*
+* @return     0 if device ID valid, negative error otherwise
+*/
+int mqttnoxlib_validate_device_id(const char * str)
 {
 	int i = 0;
 

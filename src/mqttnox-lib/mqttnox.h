@@ -54,6 +54,7 @@ typedef enum
 
 typedef enum {
     MQTTNOX_EVT_CONNECT,
+    MQTTNOX_EVT_CONNECT_ERROR,
     MQTTNOX_EVT_PUBLISHED,
     MQTTNOX_EVT_SUBSCRIBED,
     MQTTNOX_EVT_UNSUBSCRIBED,
@@ -73,11 +74,27 @@ typedef enum {
 
 } mqttnox_suback_return_t;
 
+
+typedef enum {
+    MQTTNOX_CONN_ERR_REFUSED_UNACCP_PROT_VER = 0x01, /* Connection Refused, unacceptable protocol version */
+    MQTTNOX_CONN_ERR_REFUSED_IDENT_REJECTED = 0x02,  /* Connection Refused, identifier rejected */
+    MQTTNOX_CONN_ERR_REFUSED_SERVER_UNAVAIL = 0x03,  /* Connection Refused, Server Unavailable */
+    MQTTNOX_CONN_ERR_REFUSED_BAD_USER_PASS = 0x04,   /* Connection Refused, Bad Username or Password */
+    MQTTNOX_CONN_ERR_REFUSED_NOT_AUTH = 0x05,        /* Connection Refused, Not authorized */
+
+} mqttnox_conn_err_reason_t;
+
 typedef struct
 {
     uint8_t session_present;
 
 } connect_evt_t;
+
+typedef struct
+{
+    mqttnox_conn_err_reason_t reason;
+
+} connect_error_evt_t;
 
 typedef struct
 {
@@ -126,6 +143,7 @@ typedef struct
     /* Event information */
     union {
         connect_evt_t      connect_evt;
+        connect_error_evt_t conn_err_evt;
         published_evt_t    published_evt;
         subscribed_evt_t   subscribed_evt;
         unsubscribed_evt_t unsubscribed_evt;
@@ -150,6 +168,7 @@ typedef struct
 
     mqttnox_callback_t callback;
     uint16_t packet_ident;
+    mqttnox_debug_lvl_t debug_lvl;
 
 } mqttnox_client_t;
 

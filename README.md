@@ -18,4 +18,9 @@ devices
 ## Integrating MQTTNox
 
 * Add files in src/lib to your project
+* Import header files
+    #include "mqttnox.h"
+    #include "mqttnox_tal.h"
+* Use an existing TCP Abstraction Layer (TAL) file or create your own. This file provides
+  standard TCP socket connectivity functions. See `mqttnox_tal.h` for files needed.
 * Call library functions
