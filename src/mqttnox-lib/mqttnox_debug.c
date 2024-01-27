@@ -113,8 +113,8 @@ void mqttnox_debug_printf(mqttnox_debug_lvl_t lvl, const char * format, ...)
     vsnprintf(buffer, sizeof(buffer), format, args);    
     va_end(args);
 
-    /* Send to system print */
-    printf("%s", buffer);
+    /* Send to system print */    
+    mqttnox_hal_debug_printf(buffer);
 }
 
 #ifdef __cplusplus
