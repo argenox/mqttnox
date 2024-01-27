@@ -45,6 +45,7 @@ extern "C" {
 #include "mqttnoxlib.h"
 #include "mqttnox_version.h"
 
+/** MQTTNox QoS Levels */
 typedef enum
 {
     MQTTNOX_QOS0_AT_MOST_ONCE_DELIV  = 0,
@@ -52,6 +53,7 @@ typedef enum
     MQTTNOX_QOS2_EXACTLY_ONCE_DELIV  = 2,
 } mqttnox_qos_t;
 
+/** MQTTNox Events  */
 typedef enum {
     MQTTNOX_EVT_CONNECT,
     MQTTNOX_EVT_CONNECT_ERROR,
@@ -65,6 +67,7 @@ typedef enum {
 
 } mqttnox_evt_id_t;
 
+/** MQTT Subscription acknowledgement return codes */
 typedef enum {
 
     MQTTNOX_SUBACK_RETURN_SUCCESS_QOS0 = 0x00, /* Success - Maximum QoS 0 */
@@ -75,6 +78,7 @@ typedef enum {
 } mqttnox_suback_return_t;
 
 
+/** Connection Error Reason codes */
 typedef enum {
     MQTTNOX_CONN_ERR_REFUSED_UNACCP_PROT_VER = 0x01, /* Connection Refused, unacceptable protocol version */
     MQTTNOX_CONN_ERR_REFUSED_IDENT_REJECTED = 0x02,  /* Connection Refused, identifier rejected */
@@ -135,7 +139,7 @@ typedef struct
 
 } disconnect_evt_t;
 
-
+/** MQTTNox Event Data */
 typedef struct
 {
     mqttnox_evt_id_t evt_id; /* Indicates which event occured */

@@ -50,7 +50,7 @@ extern "C" {
 #include "mqttnox_debug.h"
 
 
-/* WLAN Disconnect Reason Codes */
+/* MQTT Packet Types */
 static const item_desc_t mqtt_packet_type[] =
 {
     {"MQTT_RESERVED", MQTTNOX_CTRL_PKT_TYPE_RESERVED},
@@ -71,7 +71,14 @@ static const item_desc_t mqtt_packet_type[] =
 };
 
 
-
+/**@brief Get string for packet type
+* 
+* @note this function is a helper function to allow us to print MQTT Packet type
+*
+*
+* @param[in]   code is the packet ID
+*
+*/
 char * get_mqtt_packet_type_str(int32_t code)
 {
     int i = 0;
@@ -85,6 +92,13 @@ char * get_mqtt_packet_type_str(int32_t code)
     return "";
 }
 
+/**@brief Print data buffer
+*
+*
+* @param[in]   data   is the data to print
+* @param[in]   format len are the number of bytes to print
+*
+*/
 void print_buffer(uint8_t* data, uint16_t len)
 {    
     size_t i;
