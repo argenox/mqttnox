@@ -154,7 +154,7 @@ static void mqttnox_handler_connack(mqttnox_client_t* c, uint8_t * data, uint16_
     switch (var_hdr->conn_ack.conn_return_code)
     {
         case MQTTNOX_CONNECTION_RC_ACCEPTED:
-            mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "Successful\n");
+            mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "Connection Successful\n");
         
             evt_data->evt_id = MQTTNOX_EVT_CONNECT;
             evt_data->evt.connect_evt.session_present = var_hdr->conn_ack.flag_session_present;
@@ -162,40 +162,37 @@ static void mqttnox_handler_connack(mqttnox_client_t* c, uint8_t * data, uint16_
 
             break;
         case MQTTNOX_CONNECTION_RC_REFUSED_UNACCP_PROT_VER:
+            mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "Connection Refused, unacceptable protocol version\n");
             evt_data->evt_id = MQTTNOX_EVT_CONNECT_ERROR;
             evt_data->evt.conn_err_evt.reason = MQTTNOX_CONN_ERR_REFUSED_UNACCP_PROT_VER;
-            mqttnox_send_event(c, evt_data);
-
-            mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "Connection Refused, unacceptable protocol version\n");
+            mqttnox_send_event(c, evt_data);            
             break;
         case MQTTNOX_CONNECTION_RC_REFUSED_IDENT_REJECTED:
+            mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "Connection Refused, identifier rejected\n");
             evt_data->evt_id = MQTTNOX_EVT_CONNECT_ERROR;
             evt_data->evt.conn_err_evt.reason = MQTTNOX_CONN_ERR_REFUSED_IDENT_REJECTED;
-            mqttnox_send_event(c, evt_data);
-
-            mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "Connection Refused, identifier rejected\n");
+            mqttnox_send_event(c, evt_data);            
             break;
         case MQTTNOX_CONNECTION_RC_REFUSED_SERVER_UNAVAIL:
+            mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "Connection Refused, Server Unavailable\n");
             evt_data->evt_id = MQTTNOX_EVT_CONNECT_ERROR;
             evt_data->evt.conn_err_evt.reason = MQTTNOX_CONN_ERR_REFUSED_SERVER_UNAVAIL;
-            mqttnox_send_event(c, evt_data);
-
-            mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "Connection Refused, Server Unavailable\n");
+            mqttnox_send_event(c, evt_data);            
             break;
         case MQTTNOX_CONNECTION_RC_REFUSED_BAD_USER_PASS:
+            mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "Connection Refused, Bad Username or Password\n");
             evt_data->evt_id = MQTTNOX_EVT_CONNECT_ERROR;
             evt_data->evt.conn_err_evt.reason = MQTTNOX_CONN_ERR_REFUSED_BAD_USER_PASS;
-            mqttnox_send_event(c, evt_data);
-            mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "Connection Refused, Bad Username or Password\n");
+            mqttnox_send_event(c, evt_data);            
             break;
         case MQTTNOX_CONNECTION_RC_REFUSED_NOT_AUTH:
+            mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "Connection Refused, Not authorized\n");
             evt_data->evt_id = MQTTNOX_EVT_CONNECT_ERROR;
             evt_data->evt.conn_err_evt.reason = MQTTNOX_CONN_ERR_REFUSED_NOT_AUTH;
-            mqttnox_send_event(c, evt_data);
-            mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "Connection Refused, Not authorized\n");
+            mqttnox_send_event(c, evt_data);            
             break;
         default:
-            mqttnox_debug_printf(MQTTNOX_DEBUG_DEBUG, "Unknown error - invalid\n");
+            mqttnox_debug_printf(MQTTNOX_DEBUG_ERROR, "Unknown error - invalid connection code 0x%x\n", var_hdr->conn_ack.conn_return_code);
     }
 }
 

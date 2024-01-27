@@ -75,6 +75,9 @@ void mqttnox_callback(mqttnox_evt_data_t * data)
 			mqttnox_unsubscribe(&client, topics_sub, ARRAY_LEN(topics_sub));
 			
 			break;
+		case MQTTNOX_EVT_CONNECT_ERROR:
+			printf("[App] Connection error with error %x\n", data->evt.conn_err_evt.reason);
+			break;
 		case MQTTNOX_EVT_PUBLISHED:
 			printf("[App] MQTT Published\n");
 			break;
