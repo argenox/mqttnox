@@ -192,7 +192,9 @@ static void mqttnox_handler_connack(mqttnox_client_t* c, uint8_t * data, uint16_
             mqttnox_send_event(c, evt_data);            
             break;
         default:
-            mqttnox_debug_printf(MQTTNOX_DEBUG_ERROR, "Unknown error - invalid connection code 0x%x\n", var_hdr->conn_ack.conn_return_code);
+            mqttnox_debug_printf(MQTTNOX_DEBUG_ERROR, 
+                                "Unknown error - invalid connection code 0x%x\n", 
+                                var_hdr->conn_ack.conn_return_code);
     }
 }
 
