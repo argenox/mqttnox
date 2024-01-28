@@ -38,7 +38,7 @@
 extern "C" {
 #endif
 
-#define ERROR_BASE 0x00000000
+#define ERROR_BASE 0x00000000UL
 
 
 typedef enum

@@ -107,6 +107,11 @@ void mqttnox_tcp_rcv_func(mqttnox_client_t* c, uint8_t * data, uint16_t len)
             break;
         }
 
+        if(c->flag_initialized != MQTTNOX_INIT_FLAG) {
+            mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_ERROR, "Not initialized\n");
+            break;
+        }
+
         if (data == NULL || len == 0) {
             mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_ERROR, "Data NULL or zero length %s Line %d\n", __FILE__, __LINE__);
             break;
@@ -146,6 +151,9 @@ void mqttnox_tcp_rcv_func(mqttnox_client_t* c, uint8_t * data, uint16_t len)
             case MQTTNOX_CTRL_PKT_TYPE_PINGRESP:
                 mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "MQTTNOX_CTRL_PKT_TYPE_PINGRESP\n");
                 mqttnox_handler_pingresp(c, data, len);
+                break;
+            default:
+                mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_ERROR, "Packet Type Error\n");
                 break;
         }
     } while (0);

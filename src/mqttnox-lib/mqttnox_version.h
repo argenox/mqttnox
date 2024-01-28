@@ -34,6 +34,6 @@
 #ifndef _MQTTNOX_VERSION_H_
 #define _MQTTNOX_VERSION_H_
 
-#define MQTTNOX_VERSION "0.1.4"
+#define MQTTNOX_VERSION "0.1.5"
 
 #endif /* _MQTTNOX_VERSION_H_ */

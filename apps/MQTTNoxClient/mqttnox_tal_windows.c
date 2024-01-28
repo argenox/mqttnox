@@ -53,10 +53,6 @@ extern "C" {
 #include <iphlpapi.h>
 #include <stdio.h>
 
-    // Need to link with Ws2_32.lib
-    //#pragma comment (lib, "Ws2_32.lib")
-
-
 /* System Includes */
 #include <stdio.h>
 #include <stdlib.h>
@@ -68,17 +64,11 @@ extern "C" {
 #include <string.h>
 #include <signal.h>
 
-//#pragma comment (lib, "Mswsock.lib")
 #pragma comment(lib, "ws2_32.lib")
 
 #include "mqttnox.h"
 #include "mqttnox_debug.h"
 #include "mqttnox_tal.h"
-
-HANDLE  queueMutex;
-HANDLE  queueCond;
-
-int port_outgoing = 0;
 
 struct hostent* host;
 
@@ -86,11 +76,8 @@ uintptr_t receive_thread;
 HANDLE mqttnox_tcp_receive_thread_obj;
 
 uint8_t server_ready = 0;
-int port_incoming = 0;
 
-static uint8_t received_data[1024];
-static uint8_t received_length = 0;
-
+static uint8_t main_buffer[1024];
 
 static mqttnox_tcp_rcv_t mqttnox_tcp_rcv_cback;
 static mqttnox_client_t* client = NULL;
@@ -116,10 +103,15 @@ typedef struct
 } connection_t;
 
 
+/**@brief TCP Initialization
+ * 
+ * 
+ * @param[in]   c    mqttnox object \see mqttnox_client_t
+ * @param[in]   rcv_cback functio pointer to the receiver function
+ *
+ */
 int mqttnox_tcp_init(mqttnox_client_t* c, mqttnox_tcp_rcv_t rcv_cback)
 {
-
-
     if(rcv_cback != NULL) {
         mqttnox_tcp_rcv_cback = rcv_cback;
     }
@@ -131,42 +123,34 @@ int mqttnox_tcp_init(mqttnox_client_t* c, mqttnox_tcp_rcv_t rcv_cback)
     return 0;
 }
 
+/**@brief TCP Connect
+ * 
+ * @note this function provides TCP connection to the Address and Port
+ *       specified
+ * 
+ * @param[in]   addr  
+ * @param[in]   port  TCP port number used in mQTT
+ *
+ */
 int mqttnox_tcp_connect(char * addr, int port)
 {
-    int ret_val_t1 = 0;
-
-    port_outgoing = port;
-
-    printf("Starting Outgoing Client at port_outgoing %d\n", port);
-
-    data_callback = mqttnox_tcp_rcv_cback;
-    port_incoming = port;
-
-    queueCond = CreateEvent(NULL, false, false, NULL);
-
-    queueMutex = CreateMutex(
-        NULL,              // default security attributes
-        FALSE,             // initially not owned
-        NULL);             // unnamed mutex
-
-    int iResult;
+    int rc;
+    connection_t * connection;
     struct sockaddr_in server;
     void* ptr = NULL;
     char addrstr[32];
 
     int sock = -1;
 
-    connection_t * connection;
-
-    printf("Client TCP thread\n");
+    data_callback = mqttnox_tcp_rcv_cback;
 
     struct addrinfo* result = NULL;
     struct addrinfo hints;
 
-    // Initialize Winsock
-    iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    if (iResult != 0) {
-        printf("WSAStartup failed with error: %d\n", iResult);
+    /* Initialize Winsock */
+    rc = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    if (rc != 0) {
+        printf("WSAStartup failed with error: %d\n", rc);
         return -1;
     }
 
@@ -177,17 +161,17 @@ int mqttnox_tcp_connect(char * addr, int port)
     hints.ai_flags = AI_PASSIVE;
 
     char port_str[32];
-    snprintf(port_str, 32, "%d", port_incoming);
+    snprintf(port_str, 32, "%d", port);
 
-    // Resolve the server address and port
-    iResult = getaddrinfo(addr, port_str, &hints, &result);
-    if (iResult != 0) {
-        printf("getaddrinfo failed with error: %d\n", iResult);
+    /* Resolve the server address and port */
+    rc = getaddrinfo(addr, port_str, &hints, &result);
+    if (rc != 0) {
+        printf("getaddrinfo failed with error: %d\n", rc);
         WSACleanup();
         return -1;
     }
 
-    // Create a SOCKET for connecting to server
+    /* Create a SOCKET for connecting to server */
     ClientSocket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
     if (ClientSocket == INVALID_SOCKET) {
         printf("socket failed with error: %ld\n", WSAGetLastError());
@@ -204,9 +188,9 @@ int mqttnox_tcp_connect(char * addr, int port)
 
     server.sin_addr.s_addr = inet_addr(addrstr);
 	server.sin_family = AF_INET;
-	server.sin_port = htons( port_incoming );
+	server.sin_port = htons( port );
 
-	//Connect to remote server
+	/* Connect to remote server */
 	if (connect(ClientSocket , (struct sockaddr *)&server , sizeof(server)) < 0)
 	{
 		puts("connect error");
@@ -254,12 +238,6 @@ int mqttnox_tcp_disconnect(void)
 }
 
 
-
-
-uint8_t main_buffer[1024];
-
-
-
 int mqttnox_tcp_receive_thread(void * ptr)
 {    
     int len = 0;
@@ -279,11 +257,8 @@ int mqttnox_tcp_receive_thread(void * ptr)
         {
             print_buffer(main_buffer, len);
 
-            memcpy(received_data, main_buffer, len);
-            received_length = len;
-
             if(mqttnox_tcp_rcv_cback != NULL) {
-                data_callback(client, received_data, received_length);
+                data_callback(client, main_buffer, len);
             }
 
             len = 0;            

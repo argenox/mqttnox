@@ -42,7 +42,7 @@ extern "C" {
 #endif
 
 /* Size of the buffer used for sending data - impacts MQTTNOX RAM allocation */
-#define MQTTNOX_TX_BUF_SIZE 256
+#define MQTTNOX_TX_BUF_SIZE         256
 
 
 #ifdef __cplusplus
