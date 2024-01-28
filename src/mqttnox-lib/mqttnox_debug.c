@@ -118,17 +118,20 @@ void print_buffer(uint8_t* data, uint16_t len)
 * @param[in]   ...    additional arguments
 *
 */
-void mqttnox_debug_printf(mqttnox_debug_lvl_t lvl, const char * format, ...)
+void mqttnox_debug_printf(mqttnox_client_t * c, mqttnox_debug_lvl_t lvl, const char * format, ...)
 {
     char buffer[256];
 
-    va_list args;
-    va_start(args, format);
-    vsnprintf(buffer, sizeof(buffer), format, args);    
-    va_end(args);
+    if (lvl <= c->debug_lvl) {
 
-    /* Send to system print */    
-    mqttnox_hal_debug_printf(buffer);
+        va_list args;
+        va_start(args, format);
+        vsnprintf(buffer, sizeof(buffer), format, args);
+        va_end(args);
+
+        /* Send to system print */
+        mqttnox_hal_debug_printf(buffer);
+    }
 }
 
 #ifdef __cplusplus

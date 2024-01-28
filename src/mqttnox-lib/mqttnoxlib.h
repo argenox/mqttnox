@@ -69,12 +69,12 @@ typedef enum
 
 typedef enum
 {
-    MQTTNOX_DEBUG_NONE    = 0,
-    MQTTNOX_DEBUG_ERROR   = 1,
-    MQTTNOX_DEBUG_WARNING = 2,
-    MQTTNOX_DEBUG_INFO    = 3,
-    MQTTNOX_DEBUG_DEBUG   = 4,
-    MQTTNOX_DEBUG_ALL     = 5,
+    MQTTNOX_DEBUG_LVL_NONE    = 0,
+    MQTTNOX_DEBUG_LVL_ERROR   = 1,
+    MQTTNOX_DEBUG_LVL_WARNING = 2,
+    MQTTNOX_DEBUG_LVL_INFO    = 3,
+    MQTTNOX_DEBUG_LVL_DEBUG   = 4,
+    MQTTNOX_DEBUG_LVL_ALL     = 5,
 
 } mqttnox_debug_lvl_t;
 

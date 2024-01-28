@@ -54,7 +54,7 @@ typedef struct
 
 extern char * get_mqtt_packet_type_str(int32_t code);
 extern void print_buffer(uint8_t* data, uint16_t len);
-extern void mqttnox_debug_printf(mqttnox_debug_lvl_t lvl, const char* format, ...);
+extern void mqttnox_debug_printf(mqttnox_client_t* c, mqttnox_debug_lvl_t lvl, const char* format, ...);
 
 #ifdef __cplusplus
 }

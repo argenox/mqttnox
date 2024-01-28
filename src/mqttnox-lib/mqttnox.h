@@ -219,7 +219,7 @@ typedef struct
 
 
 
-extern mqttnox_rc_t mqttnox_init(mqttnox_client_t * c);
+extern mqttnox_rc_t mqttnox_init(mqttnox_client_t * c, mqttnox_debug_lvl_t lvl);
 extern mqttnox_rc_t mqttnox_connect(mqttnox_client_t* c, mqttnox_client_conf_t* conf);
 extern mqttnox_rc_t mqttnox_publish(mqttnox_client_t* c,
                                     mqttnox_qos_t qos,

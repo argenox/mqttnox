@@ -114,7 +114,7 @@ int main(void)
 
 	client_conf.callback = mqttnox_callback;
 
-	mqttnox_init(&client);
+	mqttnox_init(&client, MQTTNOX_DEBUG_LVL_ALL);
 	mqttnox_connect(&client, &client_conf);
 
 
