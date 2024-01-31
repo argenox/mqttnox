@@ -88,13 +88,14 @@ typedef struct {
 
     uint8_t level_val;
 
-    uint8_t flag_user_name : 1;
-    uint8_t flag_password  : 1;
-    uint8_t flag_will_retain : 1;
-    uint8_t flag_will_qos : 2;
-    uint8_t flag_will : 1;
-    uint8_t flag_clean_session : 1;
+    /* Bitfield order is reversed */
     uint8_t flag_reserved : 1;
+    uint8_t flag_clean_session : 1;
+    uint8_t flag_will : 1;
+    uint8_t flag_will_qos : 2;
+    uint8_t flag_will_retain : 1;
+    uint8_t flag_password : 1;
+    uint8_t flag_user_name : 1;
 
     uint8_t keepalive_msb;
     uint8_t keepalive_lsb;

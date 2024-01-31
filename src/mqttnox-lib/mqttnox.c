@@ -453,8 +453,9 @@ mqttnox_rc_t mqttnox_connect(mqttnox_client_t * c, mqttnox_client_conf_t * conf)
             if (conf->will_topic.msg != NULL && (strlen(conf->will_topic.msg) > 0) ||
                 conf->will_topic.topic != NULL && (strlen(conf->will_topic.topic) > 0)) {
 
+                var_hdr.flag_will = 1;
                 var_hdr.flag_will_qos = (conf->will_topic.qos & 0x03);
-                var_hdr.flag_will_retain = (conf->will_topic.retain & 0x01);
+                var_hdr.flag_will_retain = (conf->will_topic.retain & 0x01);                
             }
         }
 
