@@ -79,6 +79,7 @@ mqttnox_rc_t mqttnox_init(mqttnox_client_t* c, mqttnox_debug_lvl_t lvl)
 
     c->packet_ident = 1;
     c->debug_lvl = lvl;
+    c->keepalive = MQTT_CONN_DEFAULT_KEEPALIVE;
 
     /* Set to initialized */
     c->flag_initialized = MQTTNOX_INIT_FLAG;
@@ -388,7 +389,7 @@ static void mqttnox_send_event(mqttnox_client_t* c, mqttnox_evt_data_t * data)
 * @param[in]   c     MQTTNox Client
 * @param[in]   conf  MQTT Client Configuration
 */
-mqttnox_rc_t mqttnox_connect(mqttnox_client_t * c, mqttnox_client_conf_t * conf)
+mqttnox_rc_t mqttnox_connect(mqttnox_client_t * c, mqttnox_client_conf_t * conf, uint16_t keepalive)
 {
     mqttnox_rc_t rc = MQTTNOX_RC_ERROR;
     mqttnox_hdr_t hdr;
@@ -422,8 +423,9 @@ mqttnox_rc_t mqttnox_connect(mqttnox_client_t * c, mqttnox_client_conf_t * conf)
         /* Support for v3.1.1 Version of protocol ONLY */
         var_hdr.level_val = MQTT_PROTO_LVL_VERSION_V3_1_1;
 
-        var_hdr.keepalive_msb = MSB(MQTT_CONN_DEFAULT_KEEPALIVE);
-        var_hdr.keepalive_lsb = LSB(MQTT_CONN_DEFAULT_KEEPALIVE);
+        c->keepalive = keepalive;
+        var_hdr.keepalive_msb = MSB(keepalive);
+        var_hdr.keepalive_lsb = LSB(keepalive);
 
         /* Password flag must be set to 0 if user is not present in payload*/
         var_hdr.flag_user_name = 0;

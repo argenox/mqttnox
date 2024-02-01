@@ -172,6 +172,8 @@ typedef struct
 
     mqttnox_callback_t callback;
     uint16_t packet_ident;
+    uint16_t keepalive;
+
     mqttnox_debug_lvl_t debug_lvl;
 
 } mqttnox_client_t;
@@ -197,7 +199,8 @@ typedef struct
         uint8_t retain;
     } will_topic;
 
-    uint8_t clean_session : 1;
+    uint8_t clean_session;
+
     char* client_identifier; /* Unique Client Identifier - Usually up to 23 characters */
 
     /** Callback used for async event handling. Note that this callback is called in the context
@@ -220,7 +223,7 @@ typedef struct
 
 
 extern mqttnox_rc_t mqttnox_init(mqttnox_client_t * c, mqttnox_debug_lvl_t lvl);
-extern mqttnox_rc_t mqttnox_connect(mqttnox_client_t* c, mqttnox_client_conf_t* conf);
+extern mqttnox_rc_t mqttnox_connect(mqttnox_client_t* c, mqttnox_client_conf_t* conf, uint16_t keepalive);
 extern mqttnox_rc_t mqttnox_publish(mqttnox_client_t* c,
                                     mqttnox_qos_t qos,
                                     uint8_t retain,
