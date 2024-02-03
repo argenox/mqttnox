@@ -65,6 +65,7 @@ static void mqttnox_handler_suback(mqttnox_client_t* c, uint8_t * data, uint16_t
 static void mqttnox_handler_unsuback(mqttnox_client_t* c, uint8_t * data, uint16_t len);
 static void mqttnox_handler_pingresp(mqttnox_client_t* c, uint8_t * data, uint16_t len);
 
+static int mqttnox_set_remain_len(uint8_t* buffer, uint32_t len);
 
 /**@brief Initialization of the MQTT Client
 *
@@ -535,6 +536,8 @@ mqttnox_rc_t mqttnox_connect(mqttnox_client_t * c, mqttnox_client_conf_t * conf,
     return rc;
 }
 
+#define MAX_REMAIN_LEN_BYTES (4)
+
 /**@brief MQTT Publish
 *
 * @note This must be called when client has successfully connected
@@ -555,8 +558,13 @@ mqttnox_rc_t mqttnox_publish(mqttnox_client_t * c,
     mqttnox_hdr_t hdr;
     mqttnox_connect_var_hdr_t var_hdr;
     uint16_t pkt_len = 0;
+    uint8_t remain_bytes = 0;
     int irc;
 
+    /* We start at an offset because length is determined later.
+       Leave enough space for max remaining length bytes and header */
+    uint16_t offset = MAX_REMAIN_LEN_BYTES + sizeof(hdr);
+    
     do
     {
         if (c->flag_initialized != MQTTNOX_INIT_FLAG) {
@@ -574,37 +582,39 @@ mqttnox_rc_t mqttnox_publish(mqttnox_client_t * c,
         hdr.retain = retain;
 
         MEMZERO(mqttnox_tx_buf);
-
-        /* Copy Fixed Header */
-        memcpy(mqttnox_tx_buf, (void*)&hdr, sizeof(hdr));
-        pkt_len += sizeof(hdr);
-
-        /* Skip Remaining length for now - updated later */
-        pkt_len += 1;
-
+                
         /* Setup Variable Header*/
-        irc = mqttnox_append_utf8_string(&mqttnox_tx_buf[pkt_len], topic, 1);
+        irc = mqttnox_append_utf8_string(&mqttnox_tx_buf[pkt_len + offset], topic, 1);
         if (irc > 0) {
             pkt_len += irc;
         }
 
         if (qos == MQTTNOX_QOS1_AT_LEAST_ONCE_DELIV || qos == MQTTNOX_QOS2_EXACTLY_ONCE_DELIV) {
             /* Add packet identifier */
-            mqttnox_tx_buf[pkt_len++] = MSB(c->packet_ident);
-            mqttnox_tx_buf[pkt_len++] = LSB(c->packet_ident);
+            mqttnox_tx_buf[pkt_len + offset] = MSB(c->packet_ident);
+            pkt_len++;
+            mqttnox_tx_buf[pkt_len + offset] = LSB(c->packet_ident);
+            pkt_len++;
             c->packet_ident++;
         }
 
         /* Msg does not have length */
-        irc = mqttnox_append_utf8_string(&mqttnox_tx_buf[pkt_len], msg, 0);
+        irc = mqttnox_append_utf8_string(&mqttnox_tx_buf[pkt_len + offset], msg, 0);
         if (irc > 0) {
             pkt_len += irc;
         }
 
-        mqttnox_tx_buf[MQTT_LENGTH_FIELD_OFFSET] = pkt_len - 2;
+        /* Set length backwards behind the data */
+        remain_bytes = mqttnox_set_remain_len(&mqttnox_tx_buf[sizeof(hdr)], pkt_len);
+
+        pkt_len += remain_bytes;
+
+        /* Copy Fixed Header */
+        memcpy(&mqttnox_tx_buf[offset - remain_bytes - 1], (void*)&hdr, sizeof(hdr));
+        pkt_len += sizeof(hdr);
 
         /* Send the connect packet, response is received async */
-        irc = mqttnox_tcp_send(mqttnox_tx_buf, pkt_len);
+        irc = mqttnox_tcp_send(&mqttnox_tx_buf[offset - remain_bytes - 1], pkt_len);
 
 
         rc = MQTTNOX_SUCCESS;
@@ -629,7 +639,12 @@ mqttnox_rc_t mqttnox_subscribe(mqttnox_client_t * c,
     mqttnox_connect_var_hdr_t var_hdr;
     uint16_t pkt_len = 0;
     size_t i = 0;
+    uint8_t remain_bytes = 0;
     int irc;
+
+    /* We start at an offset because length is determined later.
+       Leave enough space for max remaining length bytes and header */
+    uint16_t offset = MAX_REMAIN_LEN_BYTES + sizeof(hdr);
 
     do
     {
@@ -640,47 +655,89 @@ mqttnox_rc_t mqttnox_subscribe(mqttnox_client_t * c,
 
         MEMZERO_S(hdr);
         MEMZERO_S(var_hdr);
+        MEMZERO(mqttnox_tx_buf);
 
         /* Initialize fixed header */
         hdr.type = MQTTNOX_CTRL_PKT_TYPE_SUBSCRIBE;
-        
-
-        MEMZERO(mqttnox_tx_buf);
-
-        /* Copy Fixed Header */
-        memcpy(mqttnox_tx_buf, (void*)&hdr, sizeof(hdr));
-        mqttnox_tx_buf[0] |= 0x2; /* Required */
-        pkt_len += sizeof(hdr);
-
-        /* Skip Remaining length for now - updated later */
-        pkt_len += 1;
-
+ 
         /* Add packet identifier */
-        mqttnox_tx_buf[pkt_len++] = MSB(c->packet_ident);
-        mqttnox_tx_buf[pkt_len++] = LSB(c->packet_ident);
+        mqttnox_tx_buf[pkt_len + offset] = LSB(c->packet_ident);
+        pkt_len++;
+        mqttnox_tx_buf[pkt_len + offset] = MSB(c->packet_ident);
+        pkt_len++;
         c->packet_ident++;
 
-
         for (i = 0; i < topic_cnt; i++) {
-            irc = mqttnox_append_utf8_string(&mqttnox_tx_buf[pkt_len], topics[i].topic, 1);
+            irc = mqttnox_append_utf8_string(&mqttnox_tx_buf[pkt_len + offset], topics[i].topic, 1);
             if (irc > 0) {
                 pkt_len += irc;
             }
 
             /* Add qos */
-            mqttnox_tx_buf[pkt_len++] = topics[i].qos & 0x03;
+            mqttnox_tx_buf[pkt_len + offset] = topics[i].qos & 0x03;
+            pkt_len++;
         }
 
-        mqttnox_tx_buf[MQTT_LENGTH_FIELD_OFFSET] = pkt_len - 2;
+        /* Set length backwards behind the data */
+        remain_bytes = mqttnox_set_remain_len(&mqttnox_tx_buf[sizeof(hdr)], pkt_len);
+        pkt_len += remain_bytes;
+
+        /* Copy Fixed Header */
+        memcpy(&mqttnox_tx_buf[offset - remain_bytes - 1], (void*)&hdr, sizeof(hdr));
+        mqttnox_tx_buf[offset - remain_bytes - 1] |= 0x2; /* Required */
+        pkt_len += sizeof(hdr);
 
         /* Send the connect packet, response is received async */
-        irc = mqttnox_tcp_send(mqttnox_tx_buf, pkt_len);
+        irc = mqttnox_tcp_send(&mqttnox_tx_buf[offset - remain_bytes - 1], pkt_len);
 
 
         rc = MQTTNOX_SUCCESS;
     } while (0);
 
     return rc;
+}
+
+int mqttnox_text_set_remain(void)
+{
+    uint8_t buffer[20];
+
+    mqttnox_set_remain_len(&buffer[15], 0);
+    mqttnox_set_remain_len(&buffer[15], 127);
+    mqttnox_set_remain_len(&buffer[15], 128);
+    mqttnox_set_remain_len(&buffer[15], 16383);
+    mqttnox_set_remain_len(&buffer[15], 16384);
+    mqttnox_set_remain_len(&buffer[15], 2097151);
+    mqttnox_set_remain_len(&buffer[15], 2097152);
+    mqttnox_set_remain_len(&buffer[15], 268435455);
+
+}
+
+static int mqttnox_set_remain_len(uint8_t * buffer, uint32_t len)
+{
+    uint8_t offset = 3;
+        
+    if (len <= 127) {
+        buffer[3] = (len & 0x0000007F);
+        return 1;
+    }
+    else if (len <= 16383) {
+        buffer[2] = (len & 0x0000007F) | (1 << 7);
+        buffer[3] = (len & 0x00007FF0) >> 7;
+        return 2;
+    }
+    else if (len <= 2097151) {
+        buffer[1] = (len & 0x0000007F) | (1 << 7);
+        buffer[2] = ((len & 0x00007FF0) >> 7) | (1 << 7);
+        buffer[3] = (len & 0x007FF000) >> 14;
+        return 3;
+    }
+    else if (len <= 268435455) {
+        buffer[0] = (len & 0x0000007F) | (1 << 7);
+        buffer[1] = ((len & 0x00007FF0) >> 7) | (1 << 7);
+        buffer[2] = ((len & 0x007FF000) >> 14) | (1 << 7);
+        buffer[3] = ((len & 0x7FF00000) >> 21);
+        return 4;
+    }
 }
 
 /**@brief MQTT Unsubscribe
@@ -829,8 +886,10 @@ static int mqttnox_append_utf8_string(uint8_t* buffer, const char* str, uint8_t 
         str_len = strlen(str);
 
         if (add_len) {
-            buffer[buf_offset + len++] = ((uint16_t)str_len & 0xFF00) >> 8;
-            buffer[buf_offset + len++] = ((uint16_t)str_len & 0x00FF);
+            buffer[buf_offset + len] = ((uint16_t)str_len & 0xFF00) >> 8;
+            len++;
+            buffer[buf_offset + len] = ((uint16_t)str_len & 0x00FF);
+            len++;
         }
 
         memcpy(&buffer[buf_offset + len], (void*)str, str_len);
