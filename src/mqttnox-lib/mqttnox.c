@@ -697,25 +697,8 @@ mqttnox_rc_t mqttnox_subscribe(mqttnox_client_t * c,
     return rc;
 }
 
-int mqttnox_text_set_remain(void)
-{
-    uint8_t buffer[20];
-
-    mqttnox_set_remain_len(&buffer[15], 0);
-    mqttnox_set_remain_len(&buffer[15], 127);
-    mqttnox_set_remain_len(&buffer[15], 128);
-    mqttnox_set_remain_len(&buffer[15], 16383);
-    mqttnox_set_remain_len(&buffer[15], 16384);
-    mqttnox_set_remain_len(&buffer[15], 2097151);
-    mqttnox_set_remain_len(&buffer[15], 2097152);
-    mqttnox_set_remain_len(&buffer[15], 268435455);
-
-}
-
 static int mqttnox_set_remain_len(uint8_t * buffer, uint32_t len)
-{
-    uint8_t offset = 3;
-        
+{        
     if (len <= 127) {
         buffer[3] = (len & 0x0000007F);
         return 1;
@@ -738,6 +721,8 @@ static int mqttnox_set_remain_len(uint8_t * buffer, uint32_t len)
         buffer[3] = ((len & 0x7FF00000) >> 21);
         return 4;
     }
+
+    return 0;
 }
 
 /**@brief MQTT Unsubscribe

@@ -49,7 +49,7 @@ typedef struct
 {
     char name[DESC_MAX_NAME_LEN];
     int32_t code;
-} item_desc_t;
+} mqttnox_item_desc_t;
 
 
 extern char * get_mqtt_packet_type_str(int32_t code);

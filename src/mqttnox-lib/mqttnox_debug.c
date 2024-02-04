@@ -51,7 +51,7 @@ extern "C" {
 
 
 /* MQTT Packet Types */
-static const item_desc_t mqtt_packet_type[] =
+static const mqttnox_item_desc_t mqtt_packet_type[] =
 {
     {"MQTT_RESERVED", MQTTNOX_CTRL_PKT_TYPE_RESERVED},
     {"MQTT_CONNECT", MQTTNOX_CTRL_PKT_TYPE_CONNECT},
