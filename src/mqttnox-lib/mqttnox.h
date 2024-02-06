@@ -45,6 +45,9 @@ extern "C" {
 #include "mqttnoxlib.h"
 #include "mqttnox_version.h"
 
+#define MQTTNOX_PACKET_IDENT_BYTE_LEN (2)
+#define MQTTNOX_LENGTH_BYTE_LEN       (2)
+
 /** MQTTNox QoS Levels */
 typedef enum
 {
@@ -55,9 +58,10 @@ typedef enum
 
 /** MQTTNox Events  */
 typedef enum {
-    MQTTNOX_EVT_CONNECT,
-    MQTTNOX_EVT_CONNECT_ERROR,
-    MQTTNOX_EVT_PUBLISHED,
+    MQTTNOX_EVT_CONNECT,        /* Connection */
+    MQTTNOX_EVT_CONNECT_ERROR,  /* Connection Error */
+    MQTTNOX_EVT_PUBLISHED,      /* Published */
+    MQTTNOX_EVT_RECEIVED,       /* Received Publish */
     MQTTNOX_EVT_SUBSCRIBED,
     MQTTNOX_EVT_UNSUBSCRIBED,
     MQTTNOX_EVT_PINGRESP,
@@ -107,6 +111,14 @@ typedef struct
 
 } published_evt_t;
 
+typedef struct
+{
+    char* topic;    
+    uint16_t packet_identifier;
+    char* payload;
+    uint16_t payload_len;
+
+} received_evt_t;
 
 typedef struct
 {
@@ -149,6 +161,7 @@ typedef struct
         connect_evt_t      connect_evt;
         connect_error_evt_t conn_err_evt;
         published_evt_t    published_evt;
+        received_evt_t     received_evt;
         subscribed_evt_t   subscribed_evt;
         unsubscribed_evt_t unsubscribed_evt;
         pingresp_evt_t     pingresp_evt;

@@ -57,6 +57,7 @@ static void mqttnox_send_event(mqttnox_client_t* c, mqttnox_evt_data_t* data);
 
 /* MQTT Response Handlers */
 static void mqttnox_handler_connack(mqttnox_client_t* c, uint8_t * data, uint16_t len);
+static void mqttnox_handler_publish(mqttnox_client_t* c, uint8_t* data, uint16_t len);
 static void mqttnox_handler_puback(mqttnox_client_t* c, uint8_t * data, uint16_t len);
 static void mqttnox_handler_pubrec(mqttnox_client_t* c, uint8_t * data, uint16_t len);
 static void mqttnox_handler_pubrel(mqttnox_client_t* c, uint8_t * data, uint16_t len);
@@ -64,8 +65,14 @@ static void mqttnox_handler_pubcomp(mqttnox_client_t* c, uint8_t * data, uint16_
 static void mqttnox_handler_suback(mqttnox_client_t* c, uint8_t * data, uint16_t len);
 static void mqttnox_handler_unsuback(mqttnox_client_t* c, uint8_t * data, uint16_t len);
 static void mqttnox_handler_pingresp(mqttnox_client_t* c, uint8_t * data, uint16_t len);
+static mqttnox_rc_t mqttnox_puback(mqttnox_client_t* c, uint16_t identifier);
+
+static mqttnox_rc_t mqttnox_pubrec(mqttnox_client_t* c, uint16_t identifier);
+static mqttnox_rc_t mqttnox_pubcomp(mqttnox_client_t* c, uint16_t identifier);
+static mqttnox_rc_t mqttnox_pubrel(mqttnox_client_t* c, uint16_t identifier);
 
 static int mqttnox_set_remain_len(uint8_t* buffer, uint32_t len);
+static int mqttnox_decode_remain_len(uint8_t* buffer, uint32_t* len);
 
 /**@brief Initialization of the MQTT Client
 *
@@ -78,7 +85,7 @@ mqttnox_rc_t mqttnox_init(mqttnox_client_t* c, mqttnox_debug_lvl_t lvl)
 {
     memset((void*)c, 0, sizeof(mqttnox_client_t));
 
-    c->packet_ident = 1;
+    c->packet_ident = 17;
     c->debug_lvl = lvl;
     c->keepalive = MQTT_CONN_DEFAULT_KEEPALIVE;
 
@@ -126,6 +133,9 @@ void mqttnox_tcp_rcv_func(mqttnox_client_t* c, uint8_t * data, uint16_t len)
             case MQTTNOX_CTRL_PKT_TYPE_CONNACK:
                 c->status.connected = 1;
                 mqttnox_handler_connack(c, data, len);
+                break;
+            case MQTTNOX_CTRL_PKT_TYPE_PUBLISH:
+                mqttnox_handler_publish(c, data, len);
                 break;
             case MQTTNOX_CTRL_PKT_TYPE_PUBACK:                
                 mqttnox_handler_puback(c, data, len);
@@ -227,6 +237,82 @@ static void mqttnox_handler_connack(mqttnox_client_t* c, uint8_t * data, uint16_
     }
 }
 
+/**@brief MQTT Publish Handler
+*
+* @note Publish Ack Handler
+*
+* @param[in]   c    mqttnox object \see mqttnox_client_t
+* @param[in]   data pointer to buffer with the incoming data from the server
+* @param[in]   len  length of the data from the server
+*
+* @return     None
+*/
+static void mqttnox_handler_publish(mqttnox_client_t* c, uint8_t* data, uint16_t len)
+{
+    
+    mqttnox_rc_t rc;
+    mqttnox_hdr_t* hdr = (mqttnox_hdr_t*)data;    
+    mqttnox_evt_data_t  evt_data;    
+    uint32_t remain_length = 0;
+    int remain_len_byte = 0;
+    size_t offset = 0;
+
+    do
+    {
+
+        remain_len_byte = mqttnox_decode_remain_len(&data[sizeof(mqttnox_hdr_t)], &remain_length);
+        if (remain_len_byte < 0 || remain_len_byte > 4) {
+            /* Remain length is wrong */
+            mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_ERROR, "Remain Length is wrong: %u bytes \n", remain_len_byte);
+        }
+
+        mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "MQTTNOX_CTRL_PKT_TYPE_PUBLISH with QoS: %u\n", hdr->qos);
+
+
+        /* Decode Topic Length */
+        uint16_t topic_len = (data[sizeof(mqttnox_hdr_t) + remain_len_byte] << 8) | data[sizeof(mqttnox_hdr_t) + remain_len_byte + 1];
+#if 0
+        if (topic_len < sizeof(data_buffer)) {
+            //memcpy(data_buffer, data[1], topic_len);
+            evt_data.evt.received_evt.topic = data
+        }
+#endif
+
+        offset = sizeof(mqttnox_hdr_t) + remain_len_byte + 2;
+
+        evt_data.evt_id = MQTTNOX_EVT_RECEIVED;
+        evt_data.evt.received_evt.topic = &data[offset];
+        offset += topic_len;
+
+        /* Packet identifier only present in packets with QoS of 1 or 2 */
+        if (hdr->qos != MQTTNOX_QOS0_AT_MOST_ONCE_DELIV) {
+            evt_data.evt.received_evt.packet_identifier = (data[offset] << 8) | data[offset + 1];
+            offset += 2;
+        }
+        evt_data.evt.received_evt.payload = &data[offset];
+        evt_data.evt.received_evt.payload_len = remain_length - MQTTNOX_PACKET_IDENT_BYTE_LEN - MQTTNOX_LENGTH_BYTE_LEN - topic_len;
+
+        switch (hdr->qos)
+        {
+            case MQTTNOX_QOS0_AT_MOST_ONCE_DELIV:
+                /* Nothing to do for QoS 0*/
+                break;
+            case MQTTNOX_QOS1_AT_LEAST_ONCE_DELIV:
+                /* Send Puback */
+                rc = mqttnox_puback(c, evt_data.evt.received_evt.packet_identifier);
+
+                break;
+            case MQTTNOX_QOS2_EXACTLY_ONCE_DELIV:
+                /* Send PubRec */
+                rc = mqttnox_pubrec(c, evt_data.evt.received_evt.packet_identifier);
+                break;
+        }
+
+    } while (0);
+    
+    mqttnox_send_event(c, &evt_data);
+}
+
 /**@brief MQTT Pub Ack Handler
 *
 * @note Publish Ack Handler
@@ -265,7 +351,15 @@ static void mqttnox_handler_puback(mqttnox_client_t* c, uint8_t * data, uint16_t
 */
 static void mqttnox_handler_pubrec(mqttnox_client_t* c, uint8_t * data, uint16_t len)
 {
-    /* Not implemented yet */
+    mqttnox_rc_t rc;
+
+    do
+    {
+        uint16_t packet_identifier = (data[sizeof(mqttnox_hdr_t)] << 8) | data[sizeof(mqttnox_hdr_t) + 1];
+
+        rc = mqttnox_pubrel(c, packet_identifier);
+
+    } while (0);
 }
 
 /**@brief MQTT Pub Rel Handler
@@ -279,8 +373,16 @@ static void mqttnox_handler_pubrec(mqttnox_client_t* c, uint8_t * data, uint16_t
 * @return     None
 */
 static void mqttnox_handler_pubrel(mqttnox_client_t* c, uint8_t * data, uint16_t len)
-{
-    /* Not implemented yet */
+{    
+    mqttnox_rc_t rc;
+    
+    do
+    {
+        uint16_t packet_identifier = (data[sizeof(mqttnox_hdr_t)] << 8) | data[sizeof(mqttnox_hdr_t) + 1];
+
+        rc = mqttnox_pubcomp(c, packet_identifier);       
+
+    } while (0);
 }
 
 /**@brief MQTT Pub Comp Handler
@@ -661,9 +763,9 @@ mqttnox_rc_t mqttnox_subscribe(mqttnox_client_t * c,
         hdr.type = MQTTNOX_CTRL_PKT_TYPE_SUBSCRIBE;
  
         /* Add packet identifier */
-        mqttnox_tx_buf[pkt_len + offset] = LSB(c->packet_ident);
-        pkt_len++;
         mqttnox_tx_buf[pkt_len + offset] = MSB(c->packet_ident);
+        pkt_len++;
+        mqttnox_tx_buf[pkt_len + offset] = LSB(c->packet_ident);
         pkt_len++;
         c->packet_ident++;
 
@@ -724,6 +826,33 @@ static int mqttnox_set_remain_len(uint8_t * buffer, uint32_t len)
 
     return 0;
 }
+static int mqttnox_decode_remain_len(uint8_t* buffer, uint32_t * len)
+{
+    uint8_t byte;
+    uint32_t multiplier = 1;
+    uint32_t value = 0;
+    size_t index = 0;
+    uint8_t byte_cnt = 0;
+    do
+    {
+        byte = buffer[index];
+        value += (byte & 127) * multiplier;
+        multiplier *= 128;
+        if (multiplier > 128 * 128 * 128) {
+            return -1;
+        }
+
+        byte_cnt++;
+
+    } while ((byte & 128) != 0);
+
+    if (len != NULL) {
+        *len = value;
+    }   
+
+    return byte_cnt;
+}
+
 
 /**@brief MQTT Unsubscribe
 *
@@ -784,6 +913,246 @@ mqttnox_rc_t mqttnox_unsubscribe(mqttnox_client_t* c,
         /* Send the connect packet, response is received async */
         irc = mqttnox_tcp_send(mqttnox_tx_buf, pkt_len);
 
+
+        rc = MQTTNOX_SUCCESS;
+    } while (0);
+
+    return rc;
+}
+
+/**@brief MQTT PubAck
+*
+* @note This function sends Pub Ack
+*
+* @param[in]   lhs   Left hand side in concatenation
+* @param[in]   rhs   Right hand side in concatenation
+*/
+static mqttnox_rc_t mqttnox_puback(mqttnox_client_t* c,
+                            uint16_t identifier)
+{
+    mqttnox_rc_t rc = MQTTNOX_RC_ERROR;
+    mqttnox_hdr_t hdr;
+    mqttnox_connect_var_hdr_t var_hdr;
+    uint16_t pkt_len = 0;    
+    uint8_t remain_bytes = 0;
+    int irc;
+
+    /* We start at an offset because length is determined later.
+       Leave enough space for max remaining length bytes and header */
+    uint16_t offset = MAX_REMAIN_LEN_BYTES + sizeof(hdr);
+
+    do
+    {
+        if (c->flag_initialized != MQTTNOX_INIT_FLAG) {
+            rc = MQTTNOX_RC_ERROR_NOT_INIT;
+            break;
+        }
+
+        MEMZERO_S(hdr);
+        MEMZERO_S(var_hdr);
+        MEMZERO(mqttnox_tx_buf);
+
+        /* Initialize fixed header */
+        hdr.type = MQTTNOX_CTRL_PKT_TYPE_PUBACK;
+
+        /* Add packet identifier */
+        mqttnox_tx_buf[pkt_len + offset] = MSB(identifier);
+        pkt_len++;
+        mqttnox_tx_buf[pkt_len + offset] = LSB(identifier);
+        pkt_len++;
+
+        /* Set length backwards behind the data */
+        remain_bytes = mqttnox_set_remain_len(&mqttnox_tx_buf[sizeof(hdr)], pkt_len);
+        pkt_len += remain_bytes;
+
+        /* Copy Fixed Header */
+        memcpy(&mqttnox_tx_buf[offset - remain_bytes - 1], (void*)&hdr, sizeof(hdr));        
+        pkt_len += sizeof(hdr);
+
+        /* Send the connect packet, response is received async */
+        irc = mqttnox_tcp_send(&mqttnox_tx_buf[offset - remain_bytes - 1], pkt_len);
+
+
+        rc = MQTTNOX_SUCCESS;
+    } while (0);
+
+    return rc;
+}
+
+/**@brief MQTT PubRec
+*
+* @note This function sends Pub Rec
+*
+* @param[in]   c   Left hand side in concatenation
+* @param[in]   rhs   Right hand side in concatenation
+*/
+static mqttnox_rc_t mqttnox_pubrec(mqttnox_client_t* c, uint16_t identifier)
+{
+    mqttnox_rc_t rc = MQTTNOX_RC_ERROR;
+    mqttnox_hdr_t hdr;
+    mqttnox_connect_var_hdr_t var_hdr;
+    uint16_t pkt_len = 0;
+    size_t i = 0;
+    uint8_t remain_bytes = 0;
+    int irc;
+
+    mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "Sending Pub Rec\n");
+
+    /* We start at an offset because length is determined later.
+       Leave enough space for max remaining length bytes and header */
+    uint16_t offset = MAX_REMAIN_LEN_BYTES + sizeof(hdr);
+
+    do
+    {
+        if (c->flag_initialized != MQTTNOX_INIT_FLAG) {
+            rc = MQTTNOX_RC_ERROR_NOT_INIT;
+            break;
+        }
+
+        MEMZERO_S(hdr);
+        MEMZERO_S(var_hdr);
+        MEMZERO(mqttnox_tx_buf);
+
+        /* Initialize fixed header */
+        hdr.type = MQTTNOX_CTRL_PKT_TYPE_PUBREC;
+
+        /* Add packet identifier */
+        mqttnox_tx_buf[pkt_len + offset] = MSB(identifier);
+        pkt_len++;
+        mqttnox_tx_buf[pkt_len + offset] = LSB(identifier);
+        pkt_len++;
+
+        /* Set length backwards behind the data */
+        remain_bytes = mqttnox_set_remain_len(&mqttnox_tx_buf[sizeof(hdr)], pkt_len);
+        pkt_len += remain_bytes;
+
+        /* Copy Fixed Header */
+        memcpy(&mqttnox_tx_buf[offset - remain_bytes - 1], (void*)&hdr, sizeof(hdr));        
+        pkt_len += sizeof(hdr);
+
+        /* Send the connect packet, response is received async */
+        irc = mqttnox_tcp_send(&mqttnox_tx_buf[offset - remain_bytes - 1], pkt_len);
+
+        rc = MQTTNOX_SUCCESS;
+    } while (0);
+
+    return rc;
+}
+
+/**@brief MQTT PubRel
+*
+* @note This function sends Pub Rec
+*
+* @param[in]   c   Left hand side in concatenation
+* @param[in]   rhs   Right hand side in concatenation
+*/
+static mqttnox_rc_t mqttnox_pubrel(mqttnox_client_t* c, uint16_t identifier)
+{
+    mqttnox_rc_t rc = MQTTNOX_RC_ERROR;
+    mqttnox_hdr_t hdr;
+    mqttnox_connect_var_hdr_t var_hdr;
+    uint16_t pkt_len = 0;
+    size_t i = 0;
+    uint8_t remain_bytes = 0;
+    int irc;
+
+    mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "Sending Pub Rel\n");
+
+    /* We start at an offset because length is determined later.
+       Leave enough space for max remaining length bytes and header */
+    uint16_t offset = MAX_REMAIN_LEN_BYTES + sizeof(hdr);
+
+    do
+    {
+        if (c->flag_initialized != MQTTNOX_INIT_FLAG) {
+            rc = MQTTNOX_RC_ERROR_NOT_INIT;
+            break;
+        }
+
+        MEMZERO_S(hdr);
+        MEMZERO_S(var_hdr);
+        MEMZERO(mqttnox_tx_buf);
+
+        /* Initialize fixed header */
+        hdr.type = MQTTNOX_CTRL_PKT_TYPE_PUBREL;
+
+        /* Add packet identifier */
+        mqttnox_tx_buf[pkt_len + offset] = LSB(identifier);
+        pkt_len++;
+        mqttnox_tx_buf[pkt_len + offset] = MSB(identifier);
+        pkt_len++;
+
+        /* Set length backwards behind the data */
+        remain_bytes = mqttnox_set_remain_len(&mqttnox_tx_buf[sizeof(hdr)], pkt_len);
+        pkt_len += remain_bytes;
+
+        /* Copy Fixed Header */
+        memcpy(&mqttnox_tx_buf[offset - remain_bytes - 1], (void*)&hdr, sizeof(hdr));
+        mqttnox_tx_buf[offset - remain_bytes - 1] |= 0x2; /* Required */
+        pkt_len += sizeof(hdr);
+
+        /* Send the connect packet, response is received async */
+        irc = mqttnox_tcp_send(&mqttnox_tx_buf[offset - remain_bytes - 1], pkt_len);
+
+        rc = MQTTNOX_SUCCESS;
+    } while (0);
+
+    return rc;
+}
+
+/**@brief MQTT PubComp
+*
+* @note This function sends Pub Rec
+*
+* @param[in]   c   Left hand side in concatenation
+* @param[in]   rhs   Right hand side in concatenation
+*/
+static mqttnox_rc_t mqttnox_pubcomp(mqttnox_client_t* c, uint16_t identifier)
+{
+    mqttnox_rc_t rc = MQTTNOX_RC_ERROR;
+    mqttnox_hdr_t hdr;
+    mqttnox_connect_var_hdr_t var_hdr;
+    uint16_t pkt_len = 0;
+    size_t i = 0;
+    uint8_t remain_bytes = 0;
+    int irc;
+
+    mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "Sending Pub Comp\n");
+
+    /* We start at an offset because length is determined later.
+       Leave enough space for max remaining length bytes and header */
+    uint16_t offset = MAX_REMAIN_LEN_BYTES + sizeof(hdr);
+
+    do
+    {
+        if (c->flag_initialized != MQTTNOX_INIT_FLAG) {
+            rc = MQTTNOX_RC_ERROR_NOT_INIT;
+            break;
+        }
+
+        MEMZERO_S(hdr);
+        MEMZERO_S(var_hdr);
+        MEMZERO(mqttnox_tx_buf);
+
+        /* Initialize fixed header */
+        hdr.type = MQTTNOX_CTRL_PKT_TYPE_PUBCOMP;
+
+        /* Add packet identifier */
+        mqttnox_tx_buf[pkt_len + offset] = LSB(identifier);
+        pkt_len++;
+        mqttnox_tx_buf[pkt_len + offset] = MSB(identifier);
+        pkt_len++;
+
+        /* Set length backwards behind the data */
+        remain_bytes = mqttnox_set_remain_len(&mqttnox_tx_buf[sizeof(hdr)], pkt_len);
+        pkt_len += remain_bytes;
+
+        /* Copy Fixed Header */
+        memcpy(&mqttnox_tx_buf[offset - remain_bytes - 1], (void*)&hdr, sizeof(hdr));        
+        pkt_len += sizeof(hdr);
+
+        /* Send the connect packet, response is received async */
+        irc = mqttnox_tcp_send(&mqttnox_tx_buf[offset - remain_bytes - 1], pkt_len);
 
         rc = MQTTNOX_SUCCESS;
     } while (0);

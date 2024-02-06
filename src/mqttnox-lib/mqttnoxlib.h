@@ -151,6 +151,15 @@ typedef struct {
 
 #pragma pack(pop)
 
+#pragma pack(push, 1)
+typedef struct {
+
+    uint8_t msb;
+    uint8_t lsb;
+
+} mqttnox_puback_var_hdr_t;
+
+#pragma pack(pop)
 
 #pragma pack(push, 1)
 typedef struct {
@@ -182,9 +191,9 @@ typedef enum {
     MQTTNOX_CTRL_PKT_TYPE_CONNACK     = 2,  /* MQTT CONNACK */
     MQTTNOX_CTRL_PKT_TYPE_PUBLISH     = 3,  /* MQTT PUBLISH */
     MQTTNOX_CTRL_PKT_TYPE_PUBACK      = 4,  /* MQTT PUBACK */
-    MQTTNOX_CTRL_PKT_TYPE_PUBREC      = 5,  /* MQTT PUBREC */
-    MQTTNOX_CTRL_PKT_TYPE_PUBREL      = 6,  /* MQTT PUBREL */
-    MQTTNOX_CTRL_PKT_TYPE_PUBCOMP     = 7,  /* MQTT PUBCOMP */
+    MQTTNOX_CTRL_PKT_TYPE_PUBREC      = 5,  /* MQTT Publish Received */
+    MQTTNOX_CTRL_PKT_TYPE_PUBREL      = 6,  /* MQTT Publish Released */
+    MQTTNOX_CTRL_PKT_TYPE_PUBCOMP     = 7,  /* MQTT Publish Complete */
     MQTTNOX_CTRL_PKT_TYPE_SUBSCRIBE   = 8,  /* MQTT SUBSCRIBE */
     MQTTNOX_CTRL_PKT_TYPE_SUBACK      = 9,  /* MQTT SUBACK */
     MQTTNOX_CTRL_PKT_TYPE_UNSUBSCRIBE = 10, /* MQTT UNSUBSCRIBE */

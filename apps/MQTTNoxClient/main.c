@@ -36,6 +36,7 @@
 
 #include "mqttnox.h"
 #include "mqttnox_tal.h"
+#include "mqttnox_commandline.h"
 
 mqttnox_client_t client = { 0 };
 mqttnox_client_conf_t client_conf = { 0 };
@@ -76,7 +77,7 @@ void mqttnox_callback(mqttnox_evt_data_t * data)
 				*/
 				
 			
-			mqttnox_subscribe(&client, topics_sub, ARRAY_LEN(topics_sub));
+			//mqttnox_subscribe(&client, topics_sub, ARRAY_LEN(topics_sub));
 
 			//mqttnox_unsubscribe(&client, topics_sub, ARRAY_LEN(topics_sub));
 			
@@ -87,11 +88,20 @@ void mqttnox_callback(mqttnox_evt_data_t * data)
 		case MQTTNOX_EVT_PUBLISHED:
 			printf("[App] MQTT Published\n");
 			break;
+		case MQTTNOX_EVT_RECEIVED:
+			printf("[App] MQTT Received\n");
+
+			printf("Topic: %s\n", data->evt.received_evt.topic);
+			printf("Payload: %s\n", data->evt.received_evt.payload);
+			printf("Packet Ident: %u\n", data->evt.received_evt.packet_identifier);
+
+
+			break;
 		case MQTTNOX_EVT_SUBSCRIBED:
-			printf("[App] MQTT Subscribed to Topic\n");
+			printf("[App] MQTT Subscribed to Topic/s\n");
 			break;
 		case MQTTNOX_EVT_UNSUBSCRIBED:
-			printf("[App] MQTT Unsubscribed to Topic\n");
+			printf("[App] MQTT Unsubscribed to Topic/s\n");
 			break;
 		case MQTTNOX_EVT_PINGRESP:
 			printf("[App] MQTT Ping Response\n");
@@ -115,16 +125,19 @@ int main(void)
 	client_conf.server.port = 1883;
 	client_conf.clean_session = 0;
 
-	client_conf.client_identifier = "MAMA12354";
+	client_conf.client_identifier = "MAMA12356";
 
 	client_conf.callback = mqttnox_callback;
 
 	mqttnox_init(&client, MQTTNOX_DEBUG_LVL_ALL);
-	mqttnox_connect(&client, &client_conf, 60);
+
+	mqttnox_commandline_init(&client);
+
+	mqttnox_connect(&client, &client_conf, 0);
 
 
 	mqttnox_wait_thread();
 
 
-	printf("MQTTNox Client");
+	printf("MQTTNox Client Done");
 }

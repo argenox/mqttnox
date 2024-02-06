@@ -26,38 +26,30 @@
 *
 * CONTACT: info@argenox.com
 *
-* File:    mqttnox.h
-* Summary: MQTT Nox External APIs
+* File:    mqttnox_commandline.h
+* Summary: MQTT Nox Command Line Definitions
+*
+* Note: Do not call the functions in this file directly. Use mqttnox.h
 *
 */
 
-#ifndef _MQTTNOX_DEBUG_H_
-#define _MQTTNOX_DEBUG_H_
-
-#include <stdint.h>
-
+#ifndef _MQTTNOX_COMMAND_LINE_H_
+#define _MQTTNOX_COMMAND_LINE_H_
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#include <stdint.h>
 #include "mqttnox_err.h"
-
-#define DESC_MAX_NAME_LEN 64
-
-typedef struct
-{
-    char name[DESC_MAX_NAME_LEN];
-    int32_t code;
-} mqttnox_item_desc_t;
+#include "common.h"
 
 
-extern char * get_mqtt_packet_type_str(int32_t code);
-extern void print_buffer(uint8_t* data, uint16_t len);
-extern void mqttnox_debug_printf(mqttnox_client_t* c, mqttnox_debug_lvl_t lvl, const char* format, ...);
+extern void mqttnox_commandline_init(mqttnox_client_t* c);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _MQTTNOX_DEBUG_H_ */
+
+#endif /* _MQTTNOX_COMMAND_LINE_H_ */

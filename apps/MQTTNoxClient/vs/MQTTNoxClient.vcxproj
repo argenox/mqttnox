@@ -19,10 +19,12 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\..\src\commandline\commandline.c" />
     <ClCompile Include="..\..\..\src\mqttnox-lib\mqttnox.c" />
     <ClCompile Include="..\..\..\src\mqttnox-lib\mqttnoxlib.c" />
     <ClCompile Include="..\..\..\src\mqttnox-lib\mqttnox_debug.c" />
     <ClCompile Include="..\main.c" />
+    <ClCompile Include="..\mqttnox_commandline.c" />
     <ClCompile Include="..\mqttnox_tal_windows.c" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -79,14 +81,14 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <ExternalIncludePath>C:\Users\glitovsky\Desktop\Argenox\mqttnox\src\mqttnox-lib;$(ExternalIncludePath)</ExternalIncludePath>
+    <ExternalIncludePath>C:\Users\glitovsky\Desktop\Argenox\mqttnox\src\commandline;C:\Users\glitovsky\Desktop\Argenox\mqttnox\src\mqttnox-lib;$(ExternalIncludePath)</ExternalIncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <ExternalIncludePath>C:\Users\glitovsky\Desktop\Argenox\mqttnox\src\mqttnox-lib;$(ExternalIncludePath)</ExternalIncludePath>
+    <ExternalIncludePath>C:\Users\glitovsky\Desktop\Argenox\mqttnox\src\commandline;C:\Users\glitovsky\Desktop\Argenox\mqttnox\src\mqttnox-lib;$(ExternalIncludePath)</ExternalIncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -95,7 +97,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
     </ClCompile>
     <Link>
@@ -123,7 +125,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
     </ClCompile>
     <Link>
