@@ -251,14 +251,16 @@ int mqttnox_tcp_receive_thread(void * ptr)
 
     while(run)
     {
-        len = recv(ClientSocket, main_buffer, sizeof(main_buffer), 0);
+        mqttnox_debug_printf(client, MQTTNOX_DEBUG_LVL_DEBUG, "Starting receive at offset: %u, reading only %u\n", client->rcv_offset, (client->rcv_buf_size - client->rcv_offset));
+
+        len = recv(ClientSocket, &client->rcv_buf[client->rcv_offset], (client->rcv_buf_size - client->rcv_offset), 0);
 
         if (len > 0)
         {
-            print_buffer(main_buffer, len);
+            print_buffer(client->rcv_buf, len + client->rcv_offset);
 
             if(mqttnox_tcp_rcv_cback != NULL) {
-                data_callback(client, main_buffer, len);
+                data_callback(client, client->rcv_buf, len + client->rcv_offset);
             }
 
             len = 0;            

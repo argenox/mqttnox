@@ -114,6 +114,7 @@ typedef struct
 typedef struct
 {
     char* topic;    
+    uint16_t topic_len;
     uint16_t packet_identifier;
     char* payload;
     uint16_t payload_len;
@@ -188,6 +189,10 @@ typedef struct
     uint16_t keepalive;
 
     mqttnox_debug_lvl_t debug_lvl;
+
+    uint8_t* rcv_buf;
+    uint16_t rcv_offset;
+    uint16_t rcv_buf_size;
 
 } mqttnox_client_t;
 

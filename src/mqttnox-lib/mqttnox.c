@@ -50,6 +50,7 @@ extern "C" {
 
 
 static uint8_t mqttnox_tx_buf[MQTTNOX_TX_BUF_SIZE];
+static uint8_t mqttnox_rx_buf[4096];
 
 /* Intrnal Helper Functions */
 static int mqttnox_append_utf8_string(uint8_t* buffer, const char* str, uint8_t add_len);
@@ -71,8 +72,8 @@ static mqttnox_rc_t mqttnox_pubrec(mqttnox_client_t* c, uint16_t identifier);
 static mqttnox_rc_t mqttnox_pubcomp(mqttnox_client_t* c, uint16_t identifier);
 static mqttnox_rc_t mqttnox_pubrel(mqttnox_client_t* c, uint16_t identifier);
 
-static int mqttnox_set_remain_len(uint8_t* buffer, uint32_t len);
-static int mqttnox_decode_remain_len(uint8_t* buffer, uint32_t* len);
+int mqttnox_set_remain_len(uint8_t* buffer, uint32_t len);
+int mqttnox_decode_remain_len(uint8_t* buffer, uint32_t* len);
 
 /**@brief Initialization of the MQTT Client
 *
@@ -92,6 +93,10 @@ mqttnox_rc_t mqttnox_init(mqttnox_client_t* c, mqttnox_debug_lvl_t lvl)
     /* Set to initialized */
     c->flag_initialized = MQTTNOX_INIT_FLAG;
 
+    c->rcv_buf = mqttnox_rx_buf;
+    c->rcv_buf_size = sizeof(mqttnox_rx_buf);
+    c->rcv_offset = 0;
+
     return MQTTNOX_SUCCESS;
 }
 
@@ -103,72 +108,128 @@ mqttnox_rc_t mqttnox_init(mqttnox_client_t* c, mqttnox_debug_lvl_t lvl)
 * @param[in]   len  length of the data from the server
 *
 */
-void mqttnox_tcp_rcv_func(mqttnox_client_t* c, uint8_t * data, uint16_t len)
+void mqttnox_tcp_rcv_func(mqttnox_client_t* c, uint8_t* data, uint16_t len)
 {
     mqttnox_hdr_t* hdr = NULL;
+    uint32_t remain_length = 0;
+    int remain_len_byte = 0;
+    size_t left = len;
+    size_t offset = 0;
 
-    mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "TCP Receive Function\n");
-    
+    uint8_t* ptr = data;
+
+    mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "TCP Receive Function length %u\n", len);
+
     do
     {
-        if (c == NULL) {
-            mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_ERROR, "Client NULL %s Line %d\n", __FILE__, __LINE__);
-            break;
+        do
+        {
+            if (c == NULL) {
+                mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_ERROR, "Client NULL %s Line %d\n", __FILE__, __LINE__);
+                break;
+            }
+
+            if (c->flag_initialized != MQTTNOX_INIT_FLAG) {
+                mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_ERROR, "Not initialized\n");
+                break;
+            }
+
+            if (data == NULL || len == 0) {
+                mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_ERROR, "Data NULL or zero length %s Line %d\n", __FILE__, __LINE__);
+                break;
+            }
+
+            hdr = (mqttnox_hdr_t*)ptr;
+            remain_len_byte = mqttnox_decode_remain_len(&data[sizeof(mqttnox_hdr_t) + offset], &remain_length);
+
+            mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "Packet with %u   %p \n", remain_length, ptr);
+            print_buffer(ptr, remain_length);
+
+            if (left < remain_length)
+            {
+                /* Packet incomplete */
+
+            }
+
+
+            switch (hdr->type) {
+
+                case MQTTNOX_CTRL_PKT_TYPE_CONNACK:
+                    c->status.connected = 1;
+                    mqttnox_handler_connack(c, ptr, len);
+                    break;
+                case MQTTNOX_CTRL_PKT_TYPE_PUBLISH:
+                    mqttnox_handler_publish(c, ptr, len);
+                    break;
+                case MQTTNOX_CTRL_PKT_TYPE_PUBACK:
+                    mqttnox_handler_puback(c, ptr, len);
+                    break;
+                case MQTTNOX_CTRL_PKT_TYPE_PUBREC:
+                    mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "MQTTNOX_CTRL_PKT_TYPE_PUBREC\n");
+                    mqttnox_handler_pubrec(c, ptr, len);
+                    break;
+                case MQTTNOX_CTRL_PKT_TYPE_PUBREL:
+                    mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "MQTTNOX_CTRL_PKT_TYPE_PUBREL\n");
+                    mqttnox_handler_pubrel(c, ptr, len);
+                    break;
+                case MQTTNOX_CTRL_PKT_TYPE_PUBCOMP:
+                    mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "MQTTNOX_CTRL_PKT_TYPE_PUBCOMP\n");
+                    mqttnox_handler_pubcomp(c, ptr, len);
+                    break;
+                case MQTTNOX_CTRL_PKT_TYPE_SUBACK:
+                    mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "MQTTNOX_CTRL_PKT_TYPE_SUBACK\n");
+                    mqttnox_handler_suback(c, ptr, len);
+                    break;
+                case MQTTNOX_CTRL_PKT_TYPE_UNSUBACK:
+                    mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "MQTTNOX_CTRL_PKT_TYPE_UNSUBACK\n");
+                    mqttnox_handler_unsuback(c, ptr, len);
+                    break;
+                case MQTTNOX_CTRL_PKT_TYPE_PINGRESP:
+                    mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "MQTTNOX_CTRL_PKT_TYPE_PINGRESP\n");
+                    mqttnox_handler_pingresp(c, ptr, len);
+                    break;
+                default:
+                    mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_ERROR, "Packet Type Error\n");
+                    break;
+            }
+
+            mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "Incrementing by %u \n", remain_length + sizeof(mqttnox_hdr_t) + remain_len_byte);
+
+            ptr += remain_length + sizeof(mqttnox_hdr_t) + remain_len_byte;
+
+            offset += remain_length + sizeof(mqttnox_hdr_t) + remain_len_byte;
+                        
+            left -= remain_length + sizeof(mqttnox_hdr_t) + remain_len_byte;
+
+            mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "Bytes left: %u \n", left);
+            if (left > 4294964020) {
+                mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_ERROR, "Error left %u \n", left);
+            }
+
+        } while (left >= remain_length);
+
+        if (((data + len) - ptr) > 0)
+        {            
+            /* Data Left */            
+
+            c->rcv_offset = (uint16_t)((data + len) - ptr);
+            mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "Copying from offset %u \n", c->rcv_offset);
+
+            memcpy(c->rcv_buf, &c->rcv_buf[c->rcv_offset], left);
+            memset(&c->rcv_buf[c->rcv_offset], 0, c->rcv_buf_size - left);
+            
+            mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "memsetting starting at %u length %u \n", c->rcv_offset, c->rcv_buf_size - left);
+
+            print_buffer(c->rcv_buf, c->rcv_buf_size);
+
+            mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "Buffer offset: %u \n", c->rcv_offset);
+        }
+        else
+        {
+            c->rcv_offset = 0;
         }
 
-        if(c->flag_initialized != MQTTNOX_INIT_FLAG) {
-            mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_ERROR, "Not initialized\n");
-            break;
-        }
-
-        if (data == NULL || len == 0) {
-            mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_ERROR, "Data NULL or zero length %s Line %d\n", __FILE__, __LINE__);
-            break;
-        }
-
-        hdr = (mqttnox_hdr_t*)data;
-
-        switch (hdr->type) {
-
-            case MQTTNOX_CTRL_PKT_TYPE_CONNACK:
-                c->status.connected = 1;
-                mqttnox_handler_connack(c, data, len);
-                break;
-            case MQTTNOX_CTRL_PKT_TYPE_PUBLISH:
-                mqttnox_handler_publish(c, data, len);
-                break;
-            case MQTTNOX_CTRL_PKT_TYPE_PUBACK:                
-                mqttnox_handler_puback(c, data, len);
-                break;
-            case MQTTNOX_CTRL_PKT_TYPE_PUBREC:
-                mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "MQTTNOX_CTRL_PKT_TYPE_PUBREC\n");
-                mqttnox_handler_pubrec(c, data, len);
-                break;
-            case MQTTNOX_CTRL_PKT_TYPE_PUBREL:
-                mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "MQTTNOX_CTRL_PKT_TYPE_PUBREL\n");
-                mqttnox_handler_pubrel(c, data, len);
-                break;
-            case MQTTNOX_CTRL_PKT_TYPE_PUBCOMP:
-                mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "MQTTNOX_CTRL_PKT_TYPE_PUBCOMP\n");
-                mqttnox_handler_pubcomp(c, data, len);
-                break;
-            case MQTTNOX_CTRL_PKT_TYPE_SUBACK:
-                mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "MQTTNOX_CTRL_PKT_TYPE_SUBACK\n");
-                mqttnox_handler_suback(c, data, len);
-                break;
-            case MQTTNOX_CTRL_PKT_TYPE_UNSUBACK:
-                mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "MQTTNOX_CTRL_PKT_TYPE_UNSUBACK\n");
-                mqttnox_handler_unsuback(c, data, len);
-                break;
-            case MQTTNOX_CTRL_PKT_TYPE_PINGRESP:
-                mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "MQTTNOX_CTRL_PKT_TYPE_PINGRESP\n");
-                mqttnox_handler_pingresp(c, data, len);
-                break;
-            default:
-                mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_ERROR, "Packet Type Error\n");
-                break;
-        }
-    } while (0);
+    } while (0);    
 }
 
 /**@brief MQTT ConnACK Handler
@@ -264,6 +325,7 @@ static void mqttnox_handler_publish(mqttnox_client_t* c, uint8_t* data, uint16_t
         if (remain_len_byte < 0 || remain_len_byte > 4) {
             /* Remain length is wrong */
             mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_ERROR, "Remain Length is wrong: %u bytes \n", remain_len_byte);
+            break;
         }
 
         mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "MQTTNOX_CTRL_PKT_TYPE_PUBLISH with QoS: %u\n", hdr->qos);
@@ -281,7 +343,9 @@ static void mqttnox_handler_publish(mqttnox_client_t* c, uint8_t* data, uint16_t
         offset = sizeof(mqttnox_hdr_t) + remain_len_byte + 2;
 
         evt_data.evt_id = MQTTNOX_EVT_RECEIVED;
-        evt_data.evt.received_evt.topic = &data[offset];
+        evt_data.evt.received_evt.topic = (char *)&data[offset];
+        evt_data.evt.received_evt.topic_len = topic_len;
+        
         offset += topic_len;
 
         /* Packet identifier only present in packets with QoS of 1 or 2 */
@@ -289,7 +353,7 @@ static void mqttnox_handler_publish(mqttnox_client_t* c, uint8_t* data, uint16_t
             evt_data.evt.received_evt.packet_identifier = (data[offset] << 8) | data[offset + 1];
             offset += 2;
         }
-        evt_data.evt.received_evt.payload = &data[offset];
+        evt_data.evt.received_evt.payload = (char *)&data[offset];
         evt_data.evt.received_evt.payload_len = remain_length - MQTTNOX_PACKET_IDENT_BYTE_LEN - MQTTNOX_LENGTH_BYTE_LEN - topic_len;
 
         switch (hdr->qos)
@@ -358,6 +422,9 @@ static void mqttnox_handler_pubrec(mqttnox_client_t* c, uint8_t * data, uint16_t
         uint16_t packet_identifier = (data[sizeof(mqttnox_hdr_t)] << 8) | data[sizeof(mqttnox_hdr_t) + 1];
 
         rc = mqttnox_pubrel(c, packet_identifier);
+        if(rc != MQTTNOX_SUCCESS) {
+            mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "Sending PubRel Failed\n");
+        }
 
     } while (0);
 }
@@ -380,7 +447,10 @@ static void mqttnox_handler_pubrel(mqttnox_client_t* c, uint8_t * data, uint16_t
     {
         uint16_t packet_identifier = (data[sizeof(mqttnox_hdr_t)] << 8) | data[sizeof(mqttnox_hdr_t) + 1];
 
-        rc = mqttnox_pubcomp(c, packet_identifier);       
+        rc = mqttnox_pubcomp(c, packet_identifier);
+        if(rc != MQTTNOX_SUCCESS) {
+            mqttnox_debug_printf(c, MQTTNOX_DEBUG_LVL_DEBUG, "Sending PubComp Failed\n");
+        }
 
     } while (0);
 }
@@ -799,7 +869,7 @@ mqttnox_rc_t mqttnox_subscribe(mqttnox_client_t * c,
     return rc;
 }
 
-static int mqttnox_set_remain_len(uint8_t * buffer, uint32_t len)
+int mqttnox_set_remain_len(uint8_t * buffer, uint32_t len)
 {        
     if (len <= 127) {
         buffer[3] = (len & 0x0000007F);
@@ -826,7 +896,7 @@ static int mqttnox_set_remain_len(uint8_t * buffer, uint32_t len)
 
     return 0;
 }
-static int mqttnox_decode_remain_len(uint8_t* buffer, uint32_t * len)
+int mqttnox_decode_remain_len(uint8_t* buffer, uint32_t * len)
 {
     uint8_t byte;
     uint32_t multiplier = 1;
@@ -835,14 +905,12 @@ static int mqttnox_decode_remain_len(uint8_t* buffer, uint32_t * len)
     uint8_t byte_cnt = 0;
     do
     {
-        byte = buffer[index];
+        byte = buffer[index++];
         value += (byte & 127) * multiplier;
         multiplier *= 128;
         if (multiplier > 128 * 128 * 128) {
             return -1;
         }
-
-        byte_cnt++;
 
     } while ((byte & 128) != 0);
 
@@ -850,7 +918,7 @@ static int mqttnox_decode_remain_len(uint8_t* buffer, uint32_t * len)
         *len = value;
     }   
 
-    return byte_cnt;
+    return index;
 }
 
 
@@ -992,7 +1060,6 @@ static mqttnox_rc_t mqttnox_pubrec(mqttnox_client_t* c, uint16_t identifier)
     mqttnox_hdr_t hdr;
     mqttnox_connect_var_hdr_t var_hdr;
     uint16_t pkt_len = 0;
-    size_t i = 0;
     uint8_t remain_bytes = 0;
     int irc;
 
@@ -1052,7 +1119,6 @@ static mqttnox_rc_t mqttnox_pubrel(mqttnox_client_t* c, uint16_t identifier)
     mqttnox_hdr_t hdr;
     mqttnox_connect_var_hdr_t var_hdr;
     uint16_t pkt_len = 0;
-    size_t i = 0;
     uint8_t remain_bytes = 0;
     int irc;
 
@@ -1113,7 +1179,6 @@ static mqttnox_rc_t mqttnox_pubcomp(mqttnox_client_t* c, uint16_t identifier)
     mqttnox_hdr_t hdr;
     mqttnox_connect_var_hdr_t var_hdr;
     uint16_t pkt_len = 0;
-    size_t i = 0;
     uint8_t remain_bytes = 0;
     int irc;
 

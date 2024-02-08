@@ -50,6 +50,9 @@ mqttnox_topic_sub_t topics_sub[] =
 	{"/test/val2", MQTTNOX_QOS2_EXACTLY_ONCE_DELIV},
 };
 
+uint8_t topic[256];
+uint8_t payload[256];
+
 /**@brief MQTTNox App Callback handler
 *
 * @note Callback used for async MQTT event handling. Note that this callback is called in the context
@@ -91,8 +94,14 @@ void mqttnox_callback(mqttnox_evt_data_t * data)
 		case MQTTNOX_EVT_RECEIVED:
 			printf("[App] MQTT Received\n");
 
-			printf("Topic: %s\n", data->evt.received_evt.topic);
-			printf("Payload: %s\n", data->evt.received_evt.payload);
+			MEMZERO(topic);
+			MEMZERO(data);
+
+			memcpy(topic, data->evt.received_evt.topic, data->evt.received_evt.topic_len);
+			memcpy(payload, data->evt.received_evt.payload, data->evt.received_evt.payload_len);
+
+			printf("Topic: %s\n", topic);
+			printf("Payload: %s\n", payload);
 			printf("Packet Ident: %u\n", data->evt.received_evt.packet_identifier);
 
 
@@ -119,6 +128,18 @@ void mqttnox_callback(mqttnox_evt_data_t * data)
 
 int main(void)
 {	
+	uint32_t len = 0;
+	char val[2] = { 0x8C, 0x01 };
+
+
+	char valinp[2];
+	mqttnox_set_remain_len(valinp, 140);
+	printf("Here1");
+
+	mqttnox_decode_remain_len(val, &len);
+	printf("Len: %u", len);
+
+
 	printf("MQTTNox Version: %s\n", MQTTNOX_VERSION);
 
 	client_conf.server.addr = "test.mosquitto.org";
@@ -126,7 +147,7 @@ int main(void)
 	client_conf.clean_session = 0;
 
 	client_conf.client_identifier = "MAMA12356";
-
+	client_conf.clean_session = 1;
 	client_conf.callback = mqttnox_callback;
 
 	mqttnox_init(&client, MQTTNOX_DEBUG_LVL_ALL);
